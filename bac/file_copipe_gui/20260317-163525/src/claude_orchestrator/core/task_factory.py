@@ -1,0 +1,26 @@
+# src\claude_orchestrator\core\task_factory.py
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-orchestrator"
+version = "0.1.0"
+description = "Multi-role Claude orchestrator for implementation, review, and approval workflows"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "claude-agent-sdk",
+    "pydantic",
+    "pyyaml",
+    "python-dotenv",
+    "rich",
+    "jsonschema",
+    "PySide6",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

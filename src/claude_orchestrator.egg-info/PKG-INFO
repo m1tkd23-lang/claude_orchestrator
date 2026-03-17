@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: claude-orchestrator
+Version: 0.1.0
+Summary: Multi-role Claude orchestrator for implementation, review, and approval workflows
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: claude-agent-sdk
+Requires-Dist: pydantic
+Requires-Dist: pyyaml
+Requires-Dist: python-dotenv
+Requires-Dist: rich
+Requires-Dist: jsonschema
+Requires-Dist: PySide6
+
+# README.md
+# claude_orchestrator
+
+複数役割の Claude エージェントを親オーケストレータが制御し、
+実装・レビュー・承認の流れを管理するためのリポジトリです。
+
+## 初期対象
+- drawing_review_app
+
+## 初期MVPの範囲
+- implementer
+- reviewer
+- approver
+- report 出力
+- target repo 切替設定
+
+## セットアップ
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -U pip
+pip install -e .

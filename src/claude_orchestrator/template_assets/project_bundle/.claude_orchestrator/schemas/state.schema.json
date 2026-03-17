@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/state.schema.json"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "State",
+  "type": "object",
+  "required": [
+    "task_id",
+    "cycle",
+    "status",
+    "current_stage",
+    "next_role",
+    "last_completed_role",
+    "max_cycles"
+  ],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path"
+      ],
+      "additionalProperties": true
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "cycle": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed",
+        "blocked",
+        "stopped"
+      ]
+    },
+    "current_stage": {
+      "type": "string",
+      "enum": [
+        "implementer",
+        "reviewer",
+        "director"
+      ]
+    },
+    "next_role": {
+      "type": "string",
+      "enum": [
+        "implementer",
+        "reviewer",
+        "director",
+        "none"
+      ]
+    },
+    "last_completed_role": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_cycles": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}

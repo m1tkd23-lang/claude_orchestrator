@@ -1,0 +1,7 @@
+claude-agent-sdk
+pydantic
+pyyaml
+python-dotenv
+rich
+jsonschema
+PySide6
