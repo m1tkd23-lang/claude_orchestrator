@@ -2,7 +2,35 @@
 from __future__ import annotations
 
 
-def decide_next_from_report(role: str, report: dict, current_cycle: int, max_cycles: int) -> dict:
+def decide_next_from_report(
+    role: str,
+    report: dict,
+    current_cycle: int,
+    max_cycles: int,
+) -> dict:
+    if role == "task_router":
+        status = str(report["status"])
+
+        if status == "ready":
+            return {
+                "status": "in_progress",
+                "current_stage": "implementer",
+                "next_role": "implementer",
+                "last_completed_role": "task_router",
+                "cycle": current_cycle,
+            }
+
+        if status == "blocked":
+            return {
+                "status": "blocked",
+                "current_stage": "task_router",
+                "next_role": "none",
+                "last_completed_role": "task_router",
+                "cycle": current_cycle,
+            }
+
+        raise ValueError(f"Unsupported task_router status: {status}")
+
     if role == "implementer":
         status = str(report["status"])
 
@@ -83,8 +111,8 @@ def decide_next_from_report(role: str, report: dict, current_cycle: int, max_cyc
 
             return {
                 "status": "in_progress",
-                "current_stage": "implementer",
-                "next_role": "implementer",
+                "current_stage": "task_router",
+                "next_role": "task_router",
                 "last_completed_role": "director",
                 "cycle": next_cycle,
             }

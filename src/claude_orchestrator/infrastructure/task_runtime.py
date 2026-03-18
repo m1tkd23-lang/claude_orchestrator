@@ -18,6 +18,7 @@ class TaskRuntime:
         self.roles_dir = self.root / "roles"
         self.schemas_dir = self.root / "schemas"
         self.templates_dir = self.root / "templates"
+        self.skills_dir = self.root / "skills"
 
     def ensure_exists(self) -> None:
         if not self.task_dir.exists():
@@ -50,15 +51,17 @@ class TaskRuntime:
         return path.read_text(encoding="utf-8")
 
     def read_schema_text(self, role: str) -> str:
-        if role == "implementer":
-            path = self.schemas_dir / "implementer_report.schema.json"
-        elif role == "reviewer":
-            path = self.schemas_dir / "reviewer_report.schema.json"
-        elif role == "director":
-            path = self.schemas_dir / "director_report.schema.json"
-        else:
+        mapping = {
+            "task_router": "task_router_report.schema.json",
+            "implementer": "implementer_report.schema.json",
+            "reviewer": "reviewer_report.schema.json",
+            "director": "director_report.schema.json",
+        }
+
+        if role not in mapping:
             raise ValueError(f"Unsupported role: {role}")
 
+        path = self.schemas_dir / mapping[role]
         if not path.exists():
             raise FileNotFoundError(f"Schema not found: {path}")
 
@@ -98,6 +101,29 @@ class TaskRuntime:
         if not path.exists():
             raise FileNotFoundError(f"Implementer report not found: {path}")
         return path.read_text(encoding="utf-8")
+
+    def read_skill_text(self, role: str, skill_name: str) -> str:
+        path = self.skills_dir / role / f"{skill_name}.md"
+        if not path.exists():
+            raise FileNotFoundError(f"Skill not found: {path}")
+        return path.read_text(encoding="utf-8")
+
+    def read_role_skills_text(self, role: str, task_json: dict) -> str:
+        role_skill_plan = task_json.get("role_skill_plan", {}) or {}
+        skill_names = role_skill_plan.get(role, []) or []
+
+        if not skill_names:
+            return ""
+
+        sections: list[str] = []
+        for skill_name in skill_names:
+            skill_name_text = str(skill_name).strip()
+            if not skill_name_text:
+                continue
+            skill_text = self.read_skill_text(role, skill_name_text)
+            sections.append(f"## skill: {skill_name_text}\n{skill_text}")
+
+        return "\n\n".join(sections)
 
     def write_prompt(self, role: str, cycle: int, content: str) -> Path:
         path = self.get_output_prompt_path(role, cycle)

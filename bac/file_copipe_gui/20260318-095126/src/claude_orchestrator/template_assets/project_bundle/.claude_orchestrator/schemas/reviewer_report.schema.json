@@ -1,0 +1,73 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/reviewer_report.schema.json"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReviewerReport",
+  "type": "object",
+  "required": [
+    "task_id",
+    "role",
+    "cycle",
+    "decision",
+    "summary",
+    "must_fix",
+    "nice_to_have",
+    "risks"
+  ],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path"
+      ],
+      "additionalProperties": true
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "const": "reviewer"
+    },
+    "cycle": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "needs_fix",
+        "blocked"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "must_fix": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nice_to_have": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

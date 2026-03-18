@@ -89,12 +89,22 @@ def clear_monitor_area(window: Any) -> None:
         window.claude_monitor_edit.clear()
 
 
+def clear_planner_area(window: Any) -> None:
+    if hasattr(window, "planner_summary_edit"):
+        window.planner_summary_edit.clear()
+    if hasattr(window, "planner_proposal_list_widget"):
+        window.planner_proposal_list_widget.clear()
+    if hasattr(window, "planner_proposal_detail_edit"):
+        window.planner_proposal_detail_edit.clear()
+
+
 def reset_repo_context(window: Any, clear_log: bool = False) -> None:
     clear_task_list(window)
     clear_task_detail(window)
     clear_prompt_area(window)
     clear_validation_area(window)
     clear_monitor_area(window)
+    clear_planner_area(window)
     if clear_log:
         window.log_edit.clear()
 
@@ -183,11 +193,13 @@ def refresh_task_list(window: Any) -> None:
         clear_task_detail(window)
         clear_prompt_area(window)
         clear_validation_area(window)
+        clear_planner_area(window)
 
     if not results:
         clear_task_detail(window)
         clear_prompt_area(window)
         clear_validation_area(window)
+        clear_planner_area(window)
 
     append_log(window, f"[INFO] task list refreshed. count={len(results)}")
 

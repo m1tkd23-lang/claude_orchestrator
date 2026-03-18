@@ -1,3 +1,4 @@
+<!-- docs\Claude Orchestrator GUI 開発記録 & 次工程指示書.md -->
 # Claude Orchestrator GUI 開発記録 & 次工程指示書
 
 ## 1. ここまでの作業まとめ
@@ -34,13 +35,14 @@ PySide6 を用いて Claude Orchestrator の GUI を構築した。
   - task詳細
   - prompt表示
   - validation表示
+  - 実行モニタ表示
 - 一覧再読込時に存在しない task はクリア
 
 ---
 
 ### 1.3 prompt template 改修（保存実行前提）
 
-Claude に JSON を返させるだけでなく、
+Claude に JSON を返させるだけでなく、  
 **指定パスに保存させる構成へ変更**
 
 追加内容:
@@ -85,9 +87,7 @@ sandbox_repo にて確認済み:
 
 対象:
 
-
-D:\Develop\claude_test_repo
-
+`D:\Develop\claude_test_repo`
 
 確認内容:
 
@@ -133,7 +133,8 @@ gui/
 ├── main_window.py
 ├── ui_sections.py
 ├── state_helpers.py
-└── dialog_helpers.py
+├── dialog_helpers.py
+└── claude_runner.py
 
 結果:
 
@@ -142,6 +143,134 @@ gui/
 可読性向上
 
 拡張しやすい構造へ改善
+
+1.9 Claude 非対話実行の GUI 統合
+
+実装内容:
+
+Claude実行(1ステップ) ボタン追加
+
+GUI から claude -p --permission-mode bypassPermissions 実行
+
+prompt を Python から標準入力で渡す構成
+
+JSON 保存確認
+
+implementer / reviewer / director での動作確認
+
+確認結果:
+
+GUI → Claude CLI 実行成功
+
+report JSON 保存成功
+
+validate-report 成功
+
+advance 成功
+
+1.10 自動完了までのループ実行追加
+
+実装内容:
+
+Claude実行(自動完了まで) ボタン追加
+
+show-next → Claude実行 → JSON保存確認 → validate → advance を自動ループ
+
+completed 到達で自動停止
+
+revise 時は implementer に戻って継続可能
+
+確認結果:
+
+TASK-0004 にて 1 クリックで completed まで到達
+
+implementer / reviewer / director を自動で通過
+
+README.md 更新、3種 report JSON 生成、state 遷移が正常動作
+
+1.11 QThread による非同期実行対応
+
+実装内容:
+
+自動実行処理を QThread + Worker に分離
+
+GUI メインスレッドをブロックしない構成へ変更
+
+signal により進行状況・ログ・validation 結果を UI に反映
+
+確認結果:
+
+実行中に GUI が固まらない
+
+タブ切替や表示確認が可能
+
+自動完了までの処理が非同期で正常動作
+
+1.12 タブ構成と Claude 実行モニタ追加
+
+構成変更:
+
+タブ1: 実行
+
+repo
+
+新規 task 作成
+
+task 一覧
+
+選択 task の現在ステータス
+
+Claude実行(自動完了まで) ボタン
+
+実行状態表示
+
+Claude実行モニタ
+
+結果ログ
+
+タブ2: 詳細
+
+task 詳細
+
+prompt 表示
+
+output json path
+
+validation 結果
+
+手動操作
+
+再読込
+
+追加内容:
+
+Claude実行モニタ
+
+process started
+
+role / cycle
+
+cwd
+
+stdout
+
+stderr
+
+report file detected
+
+validate success
+
+advanced to next role
+
+completed
+
+確認結果:
+
+実行中の状態が追跡しやすくなった
+
+接続できているか、動いているか、どこまで進んだかが可視化された
+
+TASK-0005 にて completed までのモニタ表示を確認済み
 
 2. 現在の到達点
 
@@ -171,197 +300,123 @@ GUI → validate
 
 GUI → advance
 
+GUI → completed まで自動ループ
+
+GUI → 非同期実行
+
+GUI → 実行モニタ表示
+
+実運用に近い確認
+
+実repo に対して 1クリックで completed まで進行可能
+
+実行中でも GUI が応答する
+
+進行状況が画面上で確認できる
+
 3. 現在の課題
-3.1 人手操作が残っている
+3.1 実行モニタ文言の重複整理
 
-現在:
+現状でも実用上は問題ないが、以下のような重複がある。
 
-GUI → promptコピー → Claude貼り付け → 実行
+advanced to next role の近い内容が複数出る場合がある
 
-これを自動化したい。
+process started の文言整理余地がある
 
-3.2 completed後のUX
+3.2 一覧更新時の task detail loaded ログが多い
 
-validate-report がエラーになる（仕様上正しいがUX改善余地あり）
+一覧更新と再選択で task detail loaded が複数回出る。
+機能上の問題はないが、ログ可読性改善余地あり。
 
-3.3 Claude実行のGUI未統合
+3.3 completed 後の UX 改善余地
 
-claude -p は検証済み
+completed task に対する操作の見せ方や制御は改善余地がある。
 
-GUIから呼べていない
+3.4 planner 機能未着手
+
+completed 後の次 task 提案を AI に補助させる planner 機能は、まだ未実装。
 
 4. 次の実装指示書
 4.1 作業名
 
-Claude 非対話実行の GUI 統合（1ステップ実行）
+planner v1 の追加
 
 4.2 目的
 
-Claude実行をGUIに統合し、以下を1クリックで実行可能にする:
+completed task をもとに、AI に次の実装 task 候補を提案させる。
 
-show-next
-→ claude 実行
-→ JSON保存
-→ validate
-→ advance
-4.3 実装対象
-実装する
+4.3 実装する
 
-Claude実行ボタン
+planner ロール追加
 
-subprocess 実行
+planner prompt / schema 追加
 
-JSON存在確認
+「次タスク案作成」ボタン追加
 
-validate 自動実行
+planner report JSON 生成
 
-advance 自動実行
+候補一覧表示
 
-ログ出力
+採用 / 否決 / 保留
 
-実装しない
+採用時の task 作成欄への転記
 
-自動ループ
+4.4 実装しない
 
-非同期処理
+planner の自動起動
 
-停止ボタン
+planner 候補の自動採用
 
-API化
+planner 候補からの task 自動作成
 
-並列処理
+実 task の物理削除
 
-4.4 実装方針
-subprocess 実行
-claude -p --permission-mode bypassPermissions
+repo 全体の無制限読込
 
-cwd = repo_path
+4.5 実装方針
 
-promptはPythonから渡す
+planner は completed task を入力とする
 
-1ステップ限定
+source task の task/state/report と、指定 docs を入力に含める
 
-現在の next_role のみ実行
+出力は 1〜3 件の task 候補 JSON
 
-ループしない
+候補は task 化しやすい粒度で出す
 
-エラー時停止
+最終判断は人が行う
 
-以下で停止:
+4.6 対象ファイル案
 
-show-next失敗
+新規:
 
-Claude実行失敗
+src\claude_orchestrator\application\usecases\generate_next_task_proposals_usecase.py
 
-JSON未生成
+src\claude_orchestrator\gui\planner_helpers.py
 
-validate失敗
+src\claude_orchestrator\gui\proposal_state_store.py
 
-advance失敗
+src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\roles\planner.md
 
-4.5 対象ファイル
-更新
-src\claude_orchestrator\gui\main_window.py
+src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\planner_prompt.txt
+
+src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\schemas\planner_report.schema.json
+
+更新:
+
 src\claude_orchestrator\gui\ui_sections.py
-新規
-src\claude_orchestrator\gui\claude_runner.py
-4.6 ファイル役割
-claude_runner.py
 
-claude subprocess 実行
+src\claude_orchestrator\gui\main_window.py
 
-prompt入力
-
-stdout / stderr / returncode 取得
-
-ui_sections.py
-
-「Claude実行（1ステップ）」ボタン追加
-
-main_window.py
-
-ボタンイベント追加
-
-実行フロー統合
-
-処理手順:
-
-show-next
-
-prompt取得
-
-claude実行
-
-JSON存在確認
-
-validate
-
-advance
-
-UI更新
-
-4.7 ログ方針
-
-出力内容:
-
-Claude実行開始
-
-Claude実行完了
-
-JSON保存確認
-
-validate結果
-
-advance結果
-
-4.8 完了条件
-
-以下を満たす:
-
-ボタン追加済み
-
-implementer で成功
-
-reviewer で成功
-
-director で成功
-
-completed 到達
-
-4.9 注意事項
-
-既存機能は残す
-
-main_windowを肥大化させない
-
-例外は必ずログ出力
-
-ファイルは全文出力
-
-相対パスコメント必須
-
-5. 次の段階（参考）
-
-将来的に:
-
-自動ループ実行
-
-非同期実行
-
-停止ボタン
-
-Claude API 直接連携
-
-実行履歴管理
-
-まとめ
+5. まとめ
 
 現在の状態は
 
-「AIを手動で回すGUI」
+「AIを GUI から非同期で自動実行し、完了まで監視できるオーケストレーター」
 
-次のステップは
+である。
 
-「AIを自動で回すオーケストレーター」
+次の段階は
+
+「完了後に次の task 候補まで提案できるオーケストレーター」
 
 への進化である。

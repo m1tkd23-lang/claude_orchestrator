@@ -1,3 +1,4 @@
+
 {
   "_meta": {
     "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/implementer_report.schema.json"
@@ -10,6 +11,7 @@
     "role",
     "cycle",
     "status",
+    "used_skills",
     "summary",
     "changed_files",
     "commands_run",
@@ -48,6 +50,13 @@
         "blocked",
         "need_input"
       ]
+    },
+    "used_skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "summary": {
       "type": "string"

@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/director_report.schema.json"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DirectorReport",
+  "type": "object",
+  "required": [
+    "task_id",
+    "role",
+    "cycle",
+    "final_action",
+    "summary",
+    "next_actions",
+    "remaining_risks"
+  ],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path"
+      ],
+      "additionalProperties": true
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "const": "director"
+    },
+    "cycle": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "final_action": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "revise",
+        "stop"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "remaining_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

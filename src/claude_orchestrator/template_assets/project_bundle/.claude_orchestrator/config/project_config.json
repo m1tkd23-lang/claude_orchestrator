@@ -5,6 +5,7 @@
   },
   "project_name": "",
   "enabled_roles": [
+    "task_router",
     "implementer",
     "reviewer",
     "director"
@@ -12,5 +13,5 @@
   "max_cycles": 3,
   "strict_json_only": true,
   "task_id_prefix": "TASK",
-  "schema_version": 1
+  "schema_version": 2
 }

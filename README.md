@@ -1,23 +1,255 @@
 # README.md
 # claude_orchestrator
 
-複数役割の Claude エージェントを親オーケストレータが制御し、
-実装・レビュー・承認の流れを管理するためのリポジトリです。
+複数 role の Claude エージェントを親オーケストレータが制御し、  
+task の整理、実装、レビュー、最終判断までを段階的に管理するためのリポジトリです。
 
-## 初期対象
-- drawing_review_app
+---
 
-## 初期MVPの範囲
-- implementer
-- reviewer
-- approver
-- report 出力
-- target repo 切替設定
+## 概要
 
-## セットアップ
+claude_orchestrator は、1つの task を複数 role に分けて進めるための仕組みです。  
+現在の基本 workflow は以下です。
 
-```powershell
+`task_router → implementer → reviewer → director`
+
+### 各 role の役割
+
+- `task_router`
+  - task を整理する
+  - task_type / risk_level を決める
+  - 各 role に必要な skill を決める
+- `implementer`
+  - 実装や確認作業を行う
+- `reviewer`
+  - implementer の結果を確認する
+- `director`
+  - approve / revise / stop を判断する
+- `planner`
+  - completed task をもとに次 task 候補を提案する
+  - 実行 workflow には入らない
+
+---
+
+## role と skill
+
+### role
+role は責任の単位です。
+
+### skill
+skill は、各 role がどう進めるかを定義した作業手順です。
+
+例:
+- `route-task`
+- `write-plan`
+- `execute-plan`
+- `code-review`
+
+### 現在の基本方針
+
+- skill は人が作成・追加する
+- task_router が task 内容を見て各 role に skill を配る
+- 各 role は実際に使った skill を `used_skills` として report に残す
+
+---
+
+## ディレクトリ構成の考え方
+
+実行対象 repo には `.claude_orchestrator` を展開して使います。
+
+主な構成:
+
+```text
+.claude_orchestrator/
+  config/
+  roles/
+  templates/
+  schemas/
+  skills/
+    task_router/
+    implementer/
+    reviewer/
+    director/
+  tasks/
+skills の配置例
+.claude_orchestrator/
+  skills/
+    task_router/
+      route-task.md
+    implementer/
+      write-plan.md
+      execute-plan.md
+    reviewer/
+      code-review.md
+現在の workflow
+1. create_task
+
+新しい task を作る。
+
+2. task_router
+
+task_router が最初に起動し、以下を決める。
+
+task_type
+
+risk_level
+
+role_skill_plan
+
+initial_execution_notes
+
+3. implementer
+
+割り当てられた skill を参照しながら実装または確認作業を行う。
+
+4. reviewer
+
+implementer の report を確認する。
+
+5. director
+
+approve / revise / stop を判断する。
+
+6. revise 時
+
+director が revise を返した場合、
+次サイクルは implementer ではなく task_router から再開する。
+
+used_skills
+
+各 report には used_skills を記録します。
+
+task_router
+
+通常は ["route-task"]
+
+implementer
+
+実際に使った skill のみ
+
+reviewer
+
+実際に使った skill のみ
+
+director
+
+割り当て skill がなければ空配列可
+
+これにより、
+
+どの skill を割り当てたか
+
+実際にどの skill を使ったか
+
+の両方を追跡できます。
+
+planner の位置づけ
+
+planner は completed task を材料として、
+次に実装する価値が高い task 候補を 1〜3 件提案する補助 role です。
+
+planner は以下を行いません。
+
+skill の自動決定
+
+task の自動確定
+
+state 遷移の決定
+
+つまり、
+
+planner = 次 task 候補の提案者
+
+task_router = 実行前の task 整理者 / skill 配布者
+
+です。
+
+セットアップ
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -U pip
 pip install -e .
+初期化
+
+対象 repo に .claude_orchestrator を展開します。
+
+GUI または CLI から init-project を実行します。
+
+初期化後、対象 repo 配下に role / template / schema / skills / tasks が配置されます。
+
+基本的な使い方
+新規 task を作る
+
+title
+
+description
+
+context_files
+
+constraints
+
+を入力して task を作成します。
+
+自動実行する
+
+GUI から対象 task を選び、
+Claude実行(自動完了まで) を実行します。
+
+内部では以下を繰り返します。
+
+show-next
+
+Claude 実行
+
+validate-report
+
+advance
+
+completed または停止条件まで進みます。
+
+skill の追加方針
+
+新しい skill は .claude_orchestrator\skills\<role>\ 配下に追加できます。
+ただし、置くだけでは自動で使われません。
+
+新しい skill を運用に乗せるには、以下が必要です。
+
+skill ファイルを作る
+
+route-task.md に、その skill を付与する条件を書く
+
+task を数件回して条件の妥当性を確認する
+
+基本方針:
+
+skill は人が追加する
+
+Claude は skill 案の補助提案はできる
+
+task_router 自体を育てる運用を取る
+
+現在の到達点
+
+現在は以下が成立しています。
+
+task_router を含む workflow
+
+role ごとの skill 配布
+
+task.json への role_skill_plan 保存
+
+report への used_skills 記録
+
+GUI からの自動完了までの実行
+
+planner による次 task 候補提案
+
+補足
+
+運用ルールの基準は以下を参照してください。
+
+docs\workflow_rules.md
+
+docs\planner_v1_仕様書.md
+
+.claude_orchestrator\skills\task_router\route-task.md

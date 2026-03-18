@@ -1,3 +1,4 @@
+
 {
   "_meta": {
     "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/director_report.schema.json"
@@ -10,6 +11,7 @@
     "role",
     "cycle",
     "final_action",
+    "used_skills",
     "summary",
     "next_actions",
     "remaining_risks"
@@ -45,6 +47,13 @@
         "revise",
         "stop"
       ]
+    },
+    "used_skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "summary": {
       "type": "string"

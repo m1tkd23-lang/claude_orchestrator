@@ -82,30 +82,41 @@ def build_detail_tab(window: Any) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
 
-    splitter = QSplitter(Qt.Vertical)
-    layout.addWidget(splitter)
+    vertical_splitter = QSplitter(Qt.Vertical)
+    layout.addWidget(vertical_splitter)
 
-    top_widget = QWidget()
-    top_layout = QVBoxLayout(top_widget)
-    top_layout.setContentsMargins(0, 0, 0, 0)
-    top_layout.setSpacing(8)
+    top_splitter = QSplitter(Qt.Horizontal)
 
-    top_layout.addWidget(build_task_detail_group(window))
-    top_layout.addWidget(build_manual_action_group(window))
+    left_widget = QWidget()
+    left_layout = QVBoxLayout(left_widget)
+    left_layout.setContentsMargins(0, 0, 0, 0)
+    left_layout.setSpacing(8)
+    left_layout.addWidget(build_task_detail_group(window))
+    left_layout.addWidget(build_manual_action_group(window))
+
+    right_widget = QWidget()
+    right_layout = QVBoxLayout(right_widget)
+    right_layout.setContentsMargins(0, 0, 0, 0)
+    right_layout.setSpacing(8)
+    right_layout.addWidget(build_planner_group(window))
+
+    top_splitter.addWidget(left_widget)
+    top_splitter.addWidget(right_widget)
+    top_splitter.setStretchFactor(0, 2)
+    top_splitter.setStretchFactor(1, 3)
 
     bottom_widget = QWidget()
     bottom_layout = QVBoxLayout(bottom_widget)
     bottom_layout.setContentsMargins(0, 0, 0, 0)
     bottom_layout.setSpacing(8)
-
     bottom_layout.addWidget(build_prompt_group(window), stretch=3)
     bottom_layout.addWidget(build_output_path_group(window))
     bottom_layout.addWidget(build_validation_group(window))
 
-    splitter.addWidget(top_widget)
-    splitter.addWidget(bottom_widget)
-    splitter.setStretchFactor(0, 2)
-    splitter.setStretchFactor(1, 3)
+    vertical_splitter.addWidget(top_splitter)
+    vertical_splitter.addWidget(bottom_widget)
+    vertical_splitter.setStretchFactor(0, 3)
+    vertical_splitter.setStretchFactor(1, 2)
 
     return tab
 
@@ -122,6 +133,15 @@ def connect_main_window_signals(window: Any) -> None:
     window.btn_validate.clicked.connect(window.on_validate_report)
     window.btn_advance.clicked.connect(window.on_advance_task)
     window.btn_reload_selected.clicked.connect(window.on_reload_selected_task)
+
+    window.btn_generate_next_tasks.clicked.connect(window.on_generate_next_tasks)
+    window.planner_proposal_list_widget.itemSelectionChanged.connect(
+        window.on_planner_proposal_selected
+    )
+    window.btn_accept_proposal.clicked.connect(window.on_accept_proposal)
+    window.btn_reject_proposal.clicked.connect(window.on_reject_proposal)
+    window.btn_defer_proposal.clicked.connect(window.on_defer_proposal)
+
     window.repo_path_edit.editingFinished.connect(window.on_repo_path_edited)
 
 
@@ -311,7 +331,7 @@ def build_task_detail_group(window: Any) -> QGroupBox:
         widget.setReadOnly(True)
 
     window.detail_description.setReadOnly(True)
-    window.detail_description.setFixedHeight(100)
+    window.detail_description.setFixedHeight(120)
 
     layout.addWidget(QLabel("task_id"), 0, 0)
     layout.addWidget(window.detail_task_id, 0, 1)
@@ -371,6 +391,66 @@ def build_manual_action_group(window: Any) -> QGroupBox:
     return group
 
 
+def build_planner_group(window: Any) -> QGroupBox:
+    group = QGroupBox("次タスク案")
+    layout = QVBoxLayout(group)
+
+    top_row = QHBoxLayout()
+    window.btn_generate_next_tasks = QPushButton("次タスク案作成")
+    top_row.addWidget(window.btn_generate_next_tasks)
+    top_row.addStretch()
+
+    splitter = QSplitter(Qt.Horizontal)
+
+    left_widget = QWidget()
+    left_layout = QVBoxLayout(left_widget)
+    left_layout.setContentsMargins(0, 0, 0, 0)
+    left_layout.setSpacing(6)
+
+    window.planner_summary_edit = QPlainTextEdit()
+    window.planner_summary_edit.setReadOnly(True)
+    window.planner_summary_edit.setFixedHeight(100)
+
+    window.planner_proposal_list_widget = QListWidget()
+
+    left_layout.addWidget(QLabel("planner summary"))
+    left_layout.addWidget(window.planner_summary_edit)
+    left_layout.addWidget(QLabel("proposal list"))
+    left_layout.addWidget(window.planner_proposal_list_widget)
+
+    right_widget = QWidget()
+    right_layout = QVBoxLayout(right_widget)
+    right_layout.setContentsMargins(0, 0, 0, 0)
+    right_layout.setSpacing(6)
+
+    window.planner_proposal_detail_edit = QPlainTextEdit()
+    window.planner_proposal_detail_edit.setReadOnly(True)
+
+    action_row = QHBoxLayout()
+    window.btn_accept_proposal = QPushButton("採用して task 作成欄へ転記")
+    window.btn_reject_proposal = QPushButton("否決")
+    window.btn_defer_proposal = QPushButton("保留")
+
+    action_row.addWidget(window.btn_accept_proposal)
+    action_row.addWidget(window.btn_reject_proposal)
+    action_row.addWidget(window.btn_defer_proposal)
+    action_row.addStretch()
+
+    right_layout.addWidget(QLabel("proposal detail"))
+    right_layout.addWidget(window.planner_proposal_detail_edit)
+    right_layout.addLayout(action_row)
+
+    splitter.addWidget(left_widget)
+    splitter.addWidget(right_widget)
+    splitter.setStretchFactor(0, 2)
+    splitter.setStretchFactor(1, 3)
+
+    layout.addLayout(top_row)
+    layout.addWidget(splitter)
+
+    return group
+
+
 def build_prompt_group(window: Any) -> QGroupBox:
     group = QGroupBox("prompt 表示")
     layout = QVBoxLayout(group)
@@ -388,7 +468,7 @@ def build_output_path_group(window: Any) -> QGroupBox:
 
     window.output_path_detail_edit = QPlainTextEdit()
     window.output_path_detail_edit.setReadOnly(True)
-    window.output_path_detail_edit.setFixedHeight(80)
+    window.output_path_detail_edit.setFixedHeight(90)
 
     layout.addWidget(window.output_path_detail_edit)
     return group
@@ -400,7 +480,7 @@ def build_validation_group(window: Any) -> QGroupBox:
 
     window.validation_result_edit = QPlainTextEdit()
     window.validation_result_edit.setReadOnly(True)
-    window.validation_result_edit.setFixedHeight(100)
+    window.validation_result_edit.setFixedHeight(120)
 
     layout.addWidget(window.validation_result_edit)
     return group

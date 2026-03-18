@@ -4,8 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
-from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 from claude_orchestrator.infrastructure.schema_validator import SchemaValidator
+from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class ValidateReportUseCase:
@@ -43,7 +43,12 @@ class ValidateReportUseCase:
         }
 
     @staticmethod
-    def _check_identity(task_id: str, expected_role: str, expected_cycle: int, report: dict) -> None:
+    def _check_identity(
+        task_id: str,
+        expected_role: str,
+        expected_cycle: int,
+        report: dict,
+    ) -> None:
         if str(report.get("task_id")) != str(task_id):
             raise ValueError(
                 f"task_id mismatch: expected={task_id}, actual={report.get('task_id')}"

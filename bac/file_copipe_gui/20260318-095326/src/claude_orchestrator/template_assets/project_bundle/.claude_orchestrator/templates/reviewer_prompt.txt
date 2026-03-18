@@ -1,0 +1,48 @@
+# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\reviewer_prompt.txt
+あなたは reviewer です。
+
+以下の入力を読み、role 定義と schema に従ってレビューしてください。
+
+## role definition
+{role_definition}
+
+## assigned skills
+{assigned_skills_text}
+
+## task json
+{task_json}
+
+## current state json
+{state_json}
+
+## implementer report json
+{implementer_report_json}
+
+## 作業対象 repo
+{target_repo}
+
+## 保存先情報
+絶対パス:
+{output_json_path}
+
+repoルート基準の相対パス:
+.claude_orchestrator/tasks/{task_id}/inbox/reviewer_report_v{cycle}.json
+
+## 重要な実行指示
+- レビュー結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
+- 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください
+- 親repoや別repoの .claude_orchestrator に保存してはいけません
+- ファイル保存が成功してから応答を返してください
+
+## output rules
+- JSON のみを返してください
+- コードフェンスは禁止です
+- 前置き文は禁止です
+- role は "reviewer" にしてください
+- task_id と cycle は入力と一致させてください
+
+## output schema
+{output_schema}
+
+## output file path
+{output_json_path}

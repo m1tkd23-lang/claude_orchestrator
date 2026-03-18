@@ -27,6 +27,8 @@ class StatusUseCase:
             "last_completed_role": state_json["last_completed_role"],
             "max_cycles": state_json["max_cycles"],
             "task_dir": str(runtime.task_dir),
+            "task_type": task_json.get("task_type"),
+            "risk_level": task_json.get("risk_level"),
         }
 
     def list_tasks(self, repo_path: str) -> list[dict]:

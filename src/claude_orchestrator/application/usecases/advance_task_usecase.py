@@ -4,12 +4,12 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
-from claude_orchestrator.core.task_factory import write_json
-from claude_orchestrator.core.workflow import decide_next_from_report
-from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
 )
+from claude_orchestrator.core.task_factory import write_json
+from claude_orchestrator.core.workflow import decide_next_from_report
+from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class AdvanceTaskUseCase:
@@ -35,6 +35,9 @@ class AdvanceTaskUseCase:
         with report_path.open("r", encoding="utf-8") as f:
             report = json.load(f)
 
+        if current_role == "task_router":
+            self._apply_task_router_result(runtime=runtime, report=report)
+
         next_state_values = decide_next_from_report(
             role=current_role,
             report=report,
@@ -59,3 +62,28 @@ class AdvanceTaskUseCase:
             "cycle": new_state["cycle"],
             "state_path": str(runtime.state_json_path),
         }
+
+    @staticmethod
+    def _apply_task_router_result(runtime: TaskRuntime, report: dict) -> None:
+        task_json = runtime.load_task_json()
+        updated_task = dict(task_json)
+
+        role_skill_plan = report.get("role_skill_plan", {}) or {}
+
+        updated_task["task_type"] = report.get("task_type")
+        updated_task["risk_level"] = report.get("risk_level")
+        updated_task["role_skill_plan"] = {
+            "task_router": ["route-task"],
+            "implementer": list(role_skill_plan.get("implementer", [])),
+            "reviewer": list(role_skill_plan.get("reviewer", [])),
+            "director": list(role_skill_plan.get("director", [])),
+        }
+        updated_task["skill_selection_source"] = "task_router"
+        updated_task["skill_selection_reason"] = list(
+            report.get("skill_selection_reason", [])
+        )
+        updated_task["initial_execution_notes"] = list(
+            report.get("initial_execution_notes", [])
+        )
+
+        write_json(runtime.task_json_path, updated_task)

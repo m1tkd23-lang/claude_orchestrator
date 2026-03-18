@@ -6,6 +6,9 @@
 ## role definition
 {role_definition}
 
+## assigned skills
+{assigned_skills_text}
+
 ## task json
 {task_json}
 
@@ -24,6 +27,11 @@
 
 repoルート基準の相対パス:
 .claude_orchestrator/tasks/{task_id}/inbox/implementer_report_v{cycle}.json
+
+## 実行ルール
+- used_skills には実際に使った skill 名だけを配列で入れてください
+- assigned skills に書かれていても、使っていない skill は used_skills に入れないでください
+- assigned skills が空なら used_skills は空配列でもかまいません
 
 ## 重要な実行指示
 - 作業結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください

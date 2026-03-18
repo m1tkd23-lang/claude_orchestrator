@@ -82,29 +82,45 @@ class ShowNextUseCase:
             "cycle": str(cycle),
         }
 
+        if role == "task_router":
+            task_router_skill = runtime.read_skill_text("task_router", "route-task")
+            return render_prompt(
+                template,
+                task_router_skill=task_router_skill,
+                **common_kwargs,
+            )
+
         if role == "implementer":
-            previous_director_report_json = runtime.load_previous_director_report_text(cycle)
+            previous_director_report_json = runtime.load_previous_director_report_text(
+                cycle
+            )
+            assigned_skills_text = runtime.read_role_skills_text("implementer", task_json)
             return render_prompt(
                 template,
                 previous_director_report_json=previous_director_report_json,
+                assigned_skills_text=assigned_skills_text,
                 **common_kwargs,
             )
 
         if role == "reviewer":
             implementer_report_json = runtime.load_required_report_text("reviewer", cycle)
+            assigned_skills_text = runtime.read_role_skills_text("reviewer", task_json)
             return render_prompt(
                 template,
                 implementer_report_json=implementer_report_json,
+                assigned_skills_text=assigned_skills_text,
                 **common_kwargs,
             )
 
         if role == "director":
             implementer_report_json = runtime.load_implementer_report_text(cycle)
             reviewer_report_json = runtime.load_required_report_text("director", cycle)
+            assigned_skills_text = runtime.read_role_skills_text("director", task_json)
             return render_prompt(
                 template,
                 implementer_report_json=implementer_report_json,
                 reviewer_report_json=reviewer_report_json,
+                assigned_skills_text=assigned_skills_text,
                 **common_kwargs,
             )
 

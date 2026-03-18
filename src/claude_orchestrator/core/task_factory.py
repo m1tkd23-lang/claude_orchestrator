@@ -27,6 +27,17 @@ def build_task_json(
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "context_files": context_files or [],
         "constraints": constraints or [],
+        "task_type": None,
+        "risk_level": None,
+        "role_skill_plan": {
+            "task_router": ["route-task"],
+            "implementer": [],
+            "reviewer": [],
+            "director": [],
+        },
+        "skill_selection_source": None,
+        "skill_selection_reason": [],
+        "initial_execution_notes": [],
     }
 
 
@@ -43,8 +54,8 @@ def build_state_json(
         "task_id": task_id,
         "cycle": 1,
         "status": "in_progress",
-        "current_stage": "implementer",
-        "next_role": "implementer",
+        "current_stage": "task_router",
+        "next_role": "task_router",
         "last_completed_role": None,
         "max_cycles": max_cycles,
     }

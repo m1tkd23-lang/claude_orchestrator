@@ -4,29 +4,38 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
-from jsonschema import validate
+from jsonschema import Draft202012Validator
 
 
 class SchemaValidator:
     def __init__(self, schemas_dir: Path) -> None:
-        self.schemas_dir = schemas_dir
+        self.schemas_dir = schemas_dir.resolve()
 
     def validate_report(self, role: str, data: dict) -> None:
-        schema = self._load_schema(role)
-        validate(instance=data, schema=schema)
+        schema_path = self._get_schema_path(role)
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Schema not found: {schema_path}")
 
-    def _load_schema(self, role: str) -> dict:
-        if role == "implementer":
-            path = self.schemas_dir / "implementer_report.schema.json"
-        elif role == "reviewer":
-            path = self.schemas_dir / "reviewer_report.schema.json"
-        elif role == "director":
-            path = self.schemas_dir / "director_report.schema.json"
-        else:
+        with schema_path.open("r", encoding="utf-8") as f:
+            schema = json.load(f)
+
+        validator = Draft202012Validator(schema)
+        errors = sorted(validator.iter_errors(data), key=lambda e: list(e.path))
+        if errors:
+            first = errors[0]
+            path_text = ".".join(str(p) for p in first.path) or "<root>"
+            raise ValueError(
+                f"Schema validation failed for role={role} at {path_text}: {first.message}"
+            )
+
+    def _get_schema_path(self, role: str) -> Path:
+        mapping = {
+            "task_router": "task_router_report.schema.json",
+            "implementer": "implementer_report.schema.json",
+            "reviewer": "reviewer_report.schema.json",
+            "director": "director_report.schema.json",
+            "planner": "planner_report.schema.json",
+        }
+        if role not in mapping:
             raise ValueError(f"Unsupported role: {role}")
-
-        if not path.exists():
-            raise FileNotFoundError(f"Schema not found: {path}")
-
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
+        return self.schemas_dir / mapping[role]

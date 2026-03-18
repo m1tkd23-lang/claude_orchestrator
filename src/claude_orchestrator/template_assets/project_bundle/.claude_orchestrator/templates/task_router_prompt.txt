@@ -1,0 +1,59 @@
+# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\task_router_prompt.txt
+あなたは task_router です。
+
+以下の入力を読み、role 定義、固定 skill、schema に従って task を整理してください。
+
+## role definition
+{role_definition}
+
+## task router fixed skill
+{task_router_skill}
+
+## task json
+{task_json}
+
+## current state json
+{state_json}
+
+## 作業対象 repo
+{target_repo}
+
+## 保存先情報
+絶対パス:
+{output_json_path}
+
+repoルート基準の相対パス:
+.claude_orchestrator/tasks/{task_id}/inbox/task_router_report_v{cycle}.json
+
+## 判断ルール
+- task の内容から task_type を 1 つ選んでください
+- task の内容から risk_level を 1 つ選んでください
+- 各 role に必要な skill を最小限で選んでください
+- implementer には通常、実装前整理が必要なら write-plan、実装本体が必要なら execute-plan を付けてください
+- reviewer には通常、code-review を付けてください
+- director は最初は空配列でもよいです
+- used_skills には実際に使用した skill 名を配列で入れてください
+- task_router は固定 skill として route-task を使うため、通常は used_skills に "route-task" を入れてください
+- skill_selection_reason は配列で具体的に書いてください
+- initial_execution_notes は implementer 開始前の注意点として具体的に書いてください
+- 不明な点が多く安全に routing できない場合は blocked を選んでください
+- 実在しないファイルや仕様を断定しないでください
+
+## 重要な実行指示
+- task_router report JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
+- 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください
+- 親repoや別repoの .claude_orchestrator に保存してはいけません
+- ファイル保存が成功してから応答を返してください
+
+## output rules
+- JSON のみを返してください
+- コードフェンスは禁止です
+- 前置き文は禁止です
+- role は "task_router" にしてください
+- task_id と cycle は入力と一致させてください
+
+## output schema
+{output_schema}
+
+## output file path
+{output_json_path}
