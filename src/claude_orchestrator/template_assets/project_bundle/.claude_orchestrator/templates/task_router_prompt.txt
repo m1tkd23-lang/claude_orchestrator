@@ -30,7 +30,7 @@ repoルート基準の相対パス:
 - task の内容から risk_level を 1 つ選んでください
 - 各 role に必要な skill を最小限で選んでください
 - implementer には通常、実装前整理が必要なら write-plan、実装本体が必要なら execute-plan を付けてください
-- reviewer には通常、code-review を付けてください
+- reviewer には通常、code-review を付けてください。ただし task_type が docs または research の場合は code-review の代わりに doc-consistency-review を付けてください
 - director は最初は空配列でもよいです
 - used_skills には実際に使用した skill 名を配列で入れてください
 - task_router は固定 skill として route-task を使うため、通常は used_skills に "route-task" を入れてください
@@ -38,6 +38,8 @@ repoルート基準の相対パス:
 - initial_execution_notes は implementer 開始前の注意点として具体的に書いてください
 - 不明な点が多く安全に routing できない場合は blocked を選んでください
 - 実在しないファイルや仕様を断定しないでください
+- role_skill_plan には現在 repo 内に存在する skill ファイルのみを含めてください（存在しない skill は実行時エラーになります）
+- 新しい skill が必要と判断した場合は role_skill_plan に含めず、skill_selection_reason または initial_execution_notes で「新規 skill 候補」として提案してください
 
 ## 重要な実行指示
 - task_router report JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください

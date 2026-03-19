@@ -94,6 +94,16 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "why_now": {
+            "type": "string"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "additionalProperties": true

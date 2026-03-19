@@ -115,11 +115,21 @@ class TaskRuntime:
         if not skill_names:
             return ""
 
+        normalized = [str(s).strip() for s in skill_names if str(s).strip()]
+
+        missing = [
+            str(self.skills_dir / role / f"{s}.md")
+            for s in normalized
+            if not (self.skills_dir / role / f"{s}.md").exists()
+        ]
+        if missing:
+            missing_list = "\n  ".join(missing)
+            raise FileNotFoundError(
+                f"role_skill_plan contains skill(s) that do not exist for role '{role}':\n  {missing_list}"
+            )
+
         sections: list[str] = []
-        for skill_name in skill_names:
-            skill_name_text = str(skill_name).strip()
-            if not skill_name_text:
-                continue
+        for skill_name_text in normalized:
             skill_text = self.read_skill_text(role, skill_name_text)
             sections.append(f"## skill: {skill_name_text}\n{skill_text}")
 

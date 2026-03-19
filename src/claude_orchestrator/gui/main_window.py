@@ -1,6 +1,7 @@
 # src\claude_orchestrator\gui\main_window.py
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Qt
@@ -192,7 +193,7 @@ class MainWindow(QMainWindow):
             load_selected_task_detail(self, task_id)
 
             if not self._auto_run_active:
-                self._reset_execution_view()
+                self._load_task_inbox_logs(task_id)
 
             if not self._planner_active:
                 self._load_existing_planner_data(task_id)
@@ -479,6 +480,52 @@ class MainWindow(QMainWindow):
         self.execution_cycle_edit.clear()
         self.claude_monitor_edit.clear()
 
+    _ROLE_ORDER = ["task_router", "implementer", "reviewer", "director"]
+
+    def _load_task_inbox_logs(self, task_id: str) -> None:
+        self.execution_status_edit.setText("idle")
+        self.execution_step_edit.setText("waiting")
+        self.execution_role_edit.clear()
+        self.execution_cycle_edit.clear()
+        self.claude_monitor_edit.clear()
+
+        repo_path = self.repo_path_edit.text().strip()
+        if not repo_path:
+            return
+
+        inbox_dir = Path(repo_path) / ".claude_orchestrator" / "tasks" / task_id / "inbox"
+        if not inbox_dir.exists():
+            return
+
+        reports = []
+        for json_path in inbox_dir.glob("*.json"):
+            try:
+                data = json.loads(json_path.read_text(encoding="utf-8"))
+                reports.append(data)
+            except Exception:
+                continue
+
+        def _role_sort_key(r: dict) -> tuple:
+            role = r.get("role", "")
+            try:
+                order = self._ROLE_ORDER.index(role)
+            except ValueError:
+                order = len(self._ROLE_ORDER)
+            return (r.get("cycle", 1), order)
+
+        reports.sort(key=_role_sort_key)
+
+        for report in reports:
+            role = report.get("role", "unknown")
+            cycle = report.get("cycle", "?")
+            status = report.get("status", report.get("decision", report.get("final_action", "?")))
+            summary = report.get("summary", "")
+            self._append_monitor_message(
+                f"=== {role}  cycle={cycle}  status={status} ==="
+            )
+            if summary:
+                self._append_monitor_message(summary)
+
     def _reset_planner_view(self) -> None:
         clear_planner_area(self)
         self._planner_report = None
@@ -728,6 +775,4 @@ class MainWindow(QMainWindow):
 
 def json_load_path(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
-        import json
-
         return json.load(f)
