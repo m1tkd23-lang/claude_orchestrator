@@ -20,25 +20,32 @@ class PlannerWorker(QObject):
         repo_path: str,
         source_task_id: str,
         reference_doc_paths: list[str] | None = None,
+        planner_role: str = "planner_safe",
     ) -> None:
         super().__init__()
         self.repo_path = repo_path
         self.source_task_id = source_task_id
         self.reference_doc_paths = reference_doc_paths or []
+        self.planner_role = str(planner_role).strip() or "planner_safe"
 
     def run(self) -> None:
         try:
             self.log_message.emit(
-                f"[INFO] planner generation started: source_task_id={self.source_task_id}"
+                "[INFO] planner generation started: "
+                f"source_task_id={self.source_task_id}, "
+                f"planner_role={self.planner_role}"
             )
             result = GenerateNextTaskProposalsUseCase().execute(
                 repo_path=self.repo_path,
                 source_task_id=self.source_task_id,
                 reference_doc_paths=self.reference_doc_paths,
+                planner_role=self.planner_role,
             )
             self.result_ready.emit(result)
             self.log_message.emit(
-                f"[INFO] planner generation completed: source_task_id={self.source_task_id}"
+                "[INFO] planner generation completed: "
+                f"source_task_id={self.source_task_id}, "
+                f"planner_role={self.planner_role}"
             )
         except Exception as exc:
             self.error_signal.emit(

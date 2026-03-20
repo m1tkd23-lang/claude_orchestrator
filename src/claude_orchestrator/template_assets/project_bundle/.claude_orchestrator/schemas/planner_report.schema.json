@@ -17,7 +17,8 @@
       "type": "object",
       "properties": {
         "relative_path": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -31,7 +32,10 @@
     },
     "role": {
       "type": "string",
-      "const": "planner"
+      "enum": [
+        "planner_safe",
+        "planner_improvement"
+      ]
     },
     "cycle": {
       "type": "integer",
@@ -49,17 +53,38 @@
         "type": "object",
         "required": [
           "proposal_id",
+          "planner_type",
+          "source_task_id",
+          "source_cycle",
           "title",
           "description",
+          "why_now",
           "priority",
+          "proposal_kind",
           "reason",
           "context_files",
-          "constraints"
+          "constraints",
+          "depends_on"
         ],
         "properties": {
           "proposal_id": {
             "type": "string",
-            "pattern": "^PLAN-[0-9]{4}$"
+            "pattern": "^proposal_[0-9]{4}$"
+          },
+          "planner_type": {
+            "type": "string",
+            "enum": [
+              "safe",
+              "improvement"
+            ]
+          },
+          "source_task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_cycle": {
+            "type": "integer",
+            "minimum": 1
           },
           "title": {
             "type": "string",
@@ -69,12 +94,23 @@
             "type": "string",
             "minLength": 1
           },
+          "why_now": {
+            "type": "string"
+          },
           "priority": {
             "type": "string",
             "enum": [
               "high",
               "medium",
               "low"
+            ]
+          },
+          "proposal_kind": {
+            "type": "string",
+            "enum": [
+              "safe",
+              "improvement",
+              "challenge"
             ]
           },
           "reason": {
@@ -94,9 +130,6 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          "why_now": {
-            "type": "string"
           },
           "depends_on": {
             "type": "array",

@@ -13,6 +13,7 @@ class ProjectPaths:
         self.tasks_dir = self.root / "tasks"
         self.runtime_dir = self.root / "runtime"
         self.project_config_path = self.config_dir / "project_config.json"
+        self.remote_session_path = self.runtime_dir / "remote_session.json"
 
     def ensure_initialized(self) -> None:
         if not self.root.exists():

@@ -1,4 +1,4 @@
-# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\roles\reviewer.md
+
 # reviewer role definition
 
 あなたは reviewer です。
@@ -8,6 +8,7 @@
 - implementer の作業結果をレビューする
 - 問題点、危険点、確認不足を指摘する
 - decision を JSON report として返す
+- director が判断できるだけの根拠を残す
 
 ## やってよいこと
 
@@ -36,3 +37,13 @@
 - ok
 - needs_fix
 - blocked
+
+## 品質ゲート意識
+
+- summary は空にしない
+- ok / needs_fix の場合は少なくとも以下のいずれかに判断根拠を残す
+  - must_fix
+  - nice_to_have
+  - risks
+- blocked の場合は risks に評価不能理由を残す
+- used_skills には実際に使った skill だけを記録する

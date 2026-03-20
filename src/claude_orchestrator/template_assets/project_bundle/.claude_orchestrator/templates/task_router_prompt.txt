@@ -1,10 +1,12 @@
-# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\task_router_prompt.txt
 あなたは task_router です。
 
-以下の入力を読み、role 定義、固定 skill、schema に従って task を整理してください。
+以下の入力を読み、role 定義、固定 skill、常時参照 docs、schema に従って task を整理してください。
 
 ## role definition
 {role_definition}
+
+## core docs
+{core_docs_text}
 
 ## task router fixed skill
 {task_router_skill}
@@ -34,12 +36,13 @@ repoルート基準の相対パス:
 - director は最初は空配列でもよいです
 - used_skills には実際に使用した skill 名を配列で入れてください
 - task_router は固定 skill として route-task を使うため、通常は used_skills に "route-task" を入れてください
-- skill_selection_reason は配列で具体的に書いてください
-- initial_execution_notes は implementer 開始前の注意点として具体的に書いてください
+- skill_selection_reason は空配列にせず、配列で具体的に書いてください
+- initial_execution_notes は空配列にせず、implementer 開始前の注意点として具体的に書いてください
 - 不明な点が多く安全に routing できない場合は blocked を選んでください
 - 実在しないファイルや仕様を断定しないでください
 - role_skill_plan には現在 repo 内に存在する skill ファイルのみを含めてください（存在しない skill は実行時エラーになります）
 - 新しい skill が必要と判断した場合は role_skill_plan に含めず、skill_selection_reason または initial_execution_notes で「新規 skill 候補」として提案してください
+- ready を返す場合は、次工程が着手できる程度の整理結果を残してください
 
 ## 重要な実行指示
 - task_router report JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください

@@ -6,11 +6,26 @@ import argparse
 from claude_orchestrator.application.usecases.advance_task_usecase import (
     AdvanceTaskUseCase,
 )
+from claude_orchestrator.application.usecases.create_task_from_proposal_usecase import (
+    CreateTaskFromProposalUseCase,
+)
 from claude_orchestrator.application.usecases.create_task_usecase import (
     CreateTaskUseCase,
 )
+from claude_orchestrator.application.usecases.generate_next_task_proposals_usecase import (
+    GenerateNextTaskProposalsUseCase,
+)
 from claude_orchestrator.application.usecases.init_project_usecase import (
     InitProjectUseCase,
+)
+from claude_orchestrator.application.usecases.list_proposals_usecase import (
+    ListProposalsUseCase,
+)
+from claude_orchestrator.application.usecases.remote_operator_usecase import (
+    RemoteOperatorUseCase,
+)
+from claude_orchestrator.application.usecases.run_task_usecase import (
+    RunTaskUseCase,
 )
 from claude_orchestrator.application.usecases.show_next_usecase import (
     ShowNextUseCase,
@@ -107,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate_report_parser.add_argument(
         "--role",
         required=True,
-        choices=["implementer", "reviewer", "director"],
+        choices=["task_router", "implementer", "reviewer", "director"],
         help="Role name.",
     )
 
@@ -139,6 +154,102 @@ def build_parser() -> argparse.ArgumentParser:
         "--task-id",
         required=False,
         help="Task id, for example TASK-0001. If omitted, list all tasks.",
+    )
+
+    run_task_parser = subparsers.add_parser(
+        "run-task",
+        help="Run a task until completed or stopped using the same flow as GUI auto run.",
+    )
+    run_task_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+    run_task_parser.add_argument(
+        "--task-id",
+        required=True,
+        help="Task id, for example TASK-0001.",
+    )
+
+    generate_next_tasks_parser = subparsers.add_parser(
+        "generate-next-tasks",
+        help="Generate planner proposals from a completed task.",
+    )
+    generate_next_tasks_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+    generate_next_tasks_parser.add_argument(
+        "--task-id",
+        required=True,
+        help="Completed source task id, for example TASK-0010.",
+    )
+    generate_next_tasks_parser.add_argument(
+        "--reference-doc",
+        action="append",
+        default=[],
+        help="Reference document path relative to repo. Can be specified multiple times.",
+    )
+
+    list_proposals_parser = subparsers.add_parser(
+        "list-proposals",
+        help="List planner proposals for a completed task.",
+    )
+    list_proposals_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+    list_proposals_parser.add_argument(
+        "--task-id",
+        required=True,
+        help="Completed source task id, for example TASK-0010.",
+    )
+
+    create_task_from_proposal_parser = subparsers.add_parser(
+        "create-task-from-proposal",
+        help="Create a new task directly from a planner proposal.",
+    )
+    create_task_from_proposal_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+    create_task_from_proposal_parser.add_argument(
+        "--task-id",
+        required=True,
+        help="Completed source task id, for example TASK-0010.",
+    )
+    create_task_from_proposal_parser.add_argument(
+        "--proposal-id",
+        required=True,
+        help="Proposal id, for example P-001.",
+    )
+
+    remote_menu_parser = subparsers.add_parser(
+        "remote-menu",
+        help="Show remote operator menu text.",
+    )
+    remote_menu_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+
+    remote_select_parser = subparsers.add_parser(
+        "remote-select",
+        help="Handle numeric input for remote operator.",
+    )
+    remote_select_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+    remote_select_parser.add_argument(
+        "--input",
+        required=True,
+        help="Numeric input text, for example 1.",
     )
 
     return parser
@@ -242,6 +353,102 @@ def main() -> None:
                 f"cycle={item['cycle']} | "
                 f"title={item['title']}"
             )
+        return
+
+    if args.command == "run-task":
+        usecase = RunTaskUseCase()
+        result = usecase.execute(
+            repo_path=args.repo,
+            task_id=args.task_id,
+        )
+        print(f"Task ID     : {result['task_id']}")
+        print(f"Status      : {result['status']}")
+        print(f"Current     : {result['current_stage']}")
+        print(f"Next role   : {result['next_role']}")
+        print(f"Cycle       : {result['cycle']}")
+        print(f"State file  : {result['state_path']}")
+        return
+
+    if args.command == "generate-next-tasks":
+        usecase = GenerateNextTaskProposalsUseCase()
+        result = usecase.execute(
+            repo_path=args.repo,
+            source_task_id=args.task_id,
+            reference_doc_paths=args.reference_doc,
+        )
+        planner_report = result["planner_report"]
+        proposals = list(planner_report.get("proposals", []) or [])
+
+        print(f"Source Task : {result['source_task_id']}")
+        print(f"Cycle       : {result['cycle']}")
+        print(f"Prompt file : {result['prompt_path']}")
+        print(f"Report file : {result['output_json_path']}")
+        print(f"Proposal cnt: {len(proposals)}")
+        print(f"Summary     : {planner_report.get('summary', '')}")
+        return
+
+    if args.command == "list-proposals":
+        usecase = ListProposalsUseCase()
+        result = usecase.execute(
+            repo_path=args.repo,
+            source_task_id=args.task_id,
+        )
+
+        print(f"Source Task : {result['source_task_id']}")
+        print(f"Cycle       : {result['cycle']}")
+        print(f"Report file : {result['report_path']}")
+        print(f"State file  : {result['state_path']}")
+        print(f"Summary     : {result['summary']}")
+        print("")
+
+        proposals = result["proposals"]
+        if not proposals:
+            print("No proposals found.")
+            return
+
+        for proposal in proposals:
+            depends_on = ", ".join(proposal["depends_on"]) if proposal["depends_on"] else "-"
+            print(
+                f"{proposal['proposal_id']} | "
+                f"state={proposal['state']} | "
+                f"title={proposal['title']}"
+            )
+            if proposal["why_now"]:
+                print(f"  why_now    : {proposal['why_now']}")
+            print(f"  depends_on : {depends_on}")
+            if proposal["description"]:
+                print(f"  description: {proposal['description']}")
+            print("")
+        return
+
+    if args.command == "create-task-from-proposal":
+        usecase = CreateTaskFromProposalUseCase()
+        result = usecase.execute(
+            repo_path=args.repo,
+            source_task_id=args.task_id,
+            proposal_id=args.proposal_id,
+        )
+        print(f"Source Task : {result['source_task_id']}")
+        print(f"Proposal ID : {result['proposal_id']}")
+        print(f"Created Task: {result['created_task_id']}")
+        print(f"Task dir    : {result['created_task_dir']}")
+        print(f"Report file : {result['planner_report_path']}")
+        print(f"State file  : {result['proposal_state_path']}")
+        return
+
+    if args.command == "remote-menu":
+        usecase = RemoteOperatorUseCase()
+        result = usecase.show_menu(repo_path=args.repo)
+        print(result["text"])
+        return
+
+    if args.command == "remote-select":
+        usecase = RemoteOperatorUseCase()
+        result = usecase.handle_input(
+            repo_path=args.repo,
+            user_input=args.input,
+        )
+        print(result["text"])
         return
 
     raise ValueError(f"Unknown command: {args.command}")

@@ -1,4 +1,3 @@
-# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\implementer_prompt.txt
 あなたは implementer です。
 
 以下の入力を読み、role 定義と schema に従って作業してください。
@@ -32,6 +31,10 @@ repoルート基準の相対パス:
 - used_skills には実際に使った skill 名だけを配列で入れてください
 - assigned skills に書かれていても、使っていない skill は used_skills に入れないでください
 - assigned skills が空なら used_skills は空配列でもかまいません
+- summary は空にせず、何を行ったかを具体的に書いてください
+- status が done の場合は、少なくとも changed_files / commands_run / results のいずれかに実行証跡を残してください
+- status が blocked または need_input の場合は、risks または questions に停止理由や確認事項を残してください
+- 実在しないファイルや実行していないコマンドを記録しないでください
 
 ## 重要な実行指示
 - 作業結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください

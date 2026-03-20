@@ -11,17 +11,24 @@ from claude_orchestrator.infrastructure.schema_validator import SchemaValidator
 
 
 class GenerateNextTaskProposalsUseCase:
+    CORE_DOC_PATHS_FOR_PLANNER = [
+        ".claude_orchestrator/docs/project_core/開発の目的本筋.md",
+        ".claude_orchestrator/docs/task_maps/planner_task_router判断材料マップ.md",
+    ]
+
     def execute(
         self,
         repo_path: str,
         source_task_id: str,
         reference_doc_paths: list[str] | None = None,
+        planner_role: str = "planner_safe",
     ) -> dict:
         target_repo = Path(repo_path).resolve()
         runtime = PlannerRuntime(
             target_repo=target_repo,
             source_task_id=source_task_id,
         )
+        planner_role = runtime.validate_planner_role(planner_role)
 
         runtime.ensure_source_task_exists()
         runtime.ensure_completed_source_task()
@@ -30,19 +37,21 @@ class GenerateNextTaskProposalsUseCase:
         state_json = runtime.load_source_state_json()
         cycle = int(state_json["cycle"])
 
-        role_definition = runtime.read_role_definition()
-        template = runtime.read_template()
+        role_definition = runtime.read_role_definition(planner_role)
+        template = runtime.read_template(planner_role)
         output_schema = runtime.read_schema_text()
-        output_json_path = runtime.get_report_path(cycle)
+        output_json_path = runtime.get_report_path(cycle=cycle, planner_role=planner_role)
 
         reports_text = runtime.load_source_reports_text(cycle)
         task_list_summary = runtime.build_task_list_summary()
         reference_docs = runtime.build_reference_docs_text(reference_doc_paths)
+        core_docs_text = runtime.build_core_docs_text(self.CORE_DOC_PATHS_FOR_PLANNER)
 
         prompt_text = self._build_prompt(
             source_task_id=source_task_id,
             cycle=cycle,
             repo_path=str(target_repo),
+            planner_role=planner_role,
             role_definition=role_definition,
             template=template,
             task_json=task_json,
@@ -52,11 +61,16 @@ class GenerateNextTaskProposalsUseCase:
             director_report_json=reports_text["director_report_json"],
             task_list_summary=task_list_summary,
             reference_docs=reference_docs,
+            core_docs_text=core_docs_text,
             output_schema=output_schema,
             output_json_path=output_json_path,
         )
 
-        prompt_path = runtime.write_prompt(cycle=cycle, content=prompt_text)
+        prompt_path = runtime.write_prompt(
+            cycle=cycle,
+            planner_role=planner_role,
+            content=prompt_text,
+        )
 
         claude_result = run_claude_print_mode(
             repo_path=repo_path,
@@ -75,17 +89,19 @@ class GenerateNextTaskProposalsUseCase:
             planner_report = json.load(f)
 
         SchemaValidator(runtime.schemas_dir).validate_report(
-            role="planner",
+            role=planner_role,
             data=planner_report,
         )
         self._check_identity(
             expected_source_task_id=source_task_id,
             expected_cycle=cycle,
+            expected_role=planner_role,
             report=planner_report,
         )
 
         return {
             "source_task_id": source_task_id,
+            "planner_role": planner_role,
             "cycle": cycle,
             "prompt_path": str(prompt_path),
             "output_json_path": str(output_json_path),
@@ -101,6 +117,7 @@ class GenerateNextTaskProposalsUseCase:
         source_task_id: str,
         cycle: int,
         repo_path: str,
+        planner_role: str,
         role_definition: str,
         template: str,
         task_json: dict,
@@ -110,6 +127,7 @@ class GenerateNextTaskProposalsUseCase:
         director_report_json: str,
         task_list_summary: str,
         reference_docs: str,
+        core_docs_text: str,
         output_schema: str,
         output_json_path: Path,
     ) -> str:
@@ -126,11 +144,13 @@ class GenerateNextTaskProposalsUseCase:
             director_report_json=director_report_json,
             task_list_summary=task_list_summary,
             reference_docs=reference_docs,
+            core_docs_text=core_docs_text,
             output_schema=output_schema,
             output_json_path=str(output_json_path),
             target_repo=repo_path,
             task_id=source_task_id,
             cycle=str(cycle),
+            planner_role=planner_role,
         )
 
     @staticmethod
@@ -138,6 +158,7 @@ class GenerateNextTaskProposalsUseCase:
         *,
         expected_source_task_id: str,
         expected_cycle: int,
+        expected_role: str,
         report: dict,
     ) -> None:
         if str(report.get("source_task_id")) != str(expected_source_task_id):
@@ -146,9 +167,9 @@ class GenerateNextTaskProposalsUseCase:
                 f"expected={expected_source_task_id}, actual={report.get('source_task_id')}"
             )
 
-        if str(report.get("role")) != "planner":
+        if str(report.get("role")) != expected_role:
             raise ValueError(
-                f"role mismatch: expected=planner, actual={report.get('role')}"
+                f"role mismatch: expected={expected_role}, actual={report.get('role')}"
             )
 
         if int(report.get("cycle")) != int(expected_cycle):

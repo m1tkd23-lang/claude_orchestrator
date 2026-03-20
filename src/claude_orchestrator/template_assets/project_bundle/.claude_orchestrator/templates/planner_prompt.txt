@@ -12,6 +12,9 @@ workflow 遷移を決定してはいけません。
 ## role definition
 {role_definition}
 
+## core docs
+{core_docs_text}
+
 ## source task json
 {task_json}
 
@@ -48,8 +51,6 @@ repoルート基準の相対パス:
 - 候補は 1〜3 件までにしてください
 - 抽象論ではなく、そのまま task 化しやすい粒度で提案してください
 - 候補ごとに title, description, priority, reason, context_files, constraints を必ず埋めてください
-- why_now: この task を「今」やるべき理由を 1〜2 文で記述してください（任意項目）
-- depends_on: この task の前提となる task_id のリストを記述してください（例: ["TASK-0001", "TASK-0002"]）。前提がない場合は空リスト [] にしてください（任意項目）
 - 既存 task と重複しそうな案や、価値の低い案は避けてください
 - docs と source task の内容に整合する案を優先してください
 - 実在しないファイル名をむやみに作らないでください

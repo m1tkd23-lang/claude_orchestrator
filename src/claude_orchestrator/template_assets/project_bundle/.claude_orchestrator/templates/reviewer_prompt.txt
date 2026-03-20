@@ -1,4 +1,3 @@
-# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\reviewer_prompt.txt
 あなたは reviewer です。
 
 以下の入力を読み、role 定義と schema に従ってレビューしてください。
@@ -32,6 +31,10 @@ repoルート基準の相対パス:
 - used_skills には実際に使った skill 名だけを配列で入れてください
 - assigned skills に書かれていても、使っていない skill は used_skills に入れないでください
 - assigned skills が空なら used_skills は空配列でもかまいません
+- summary は空にせず、判断の要点を具体的に書いてください
+- decision が ok または needs_fix の場合は、must_fix / nice_to_have / risks のいずれかに判断根拠を残してください
+- decision が blocked の場合は、risks に評価不能理由を残してください
+- 実装そのものは行わず、評価に徹してください
 
 ## 重要な実行指示
 - レビュー結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください

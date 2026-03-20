@@ -10,6 +10,21 @@ from claude_orchestrator.infrastructure.task_index import TaskIndex
 
 
 class PlannerRuntime:
+    _ROLE_TO_TEMPLATE = {
+        "planner_safe": "planner_safe_prompt.txt",
+        "planner_improvement": "planner_improvement_prompt.txt",
+    }
+
+    _ROLE_TO_DEFINITION = {
+        "planner_safe": "planner_safe.md",
+        "planner_improvement": "planner_improvement.md",
+    }
+
+    _ROLE_TO_REPORT_FILENAME = {
+        "planner_safe": "planner_safe_report_v{cycle}.json",
+        "planner_improvement": "planner_improvement_report_v{cycle}.json",
+    }
+
     def __init__(self, target_repo: Path, source_task_id: str) -> None:
         self.target_repo = target_repo.resolve()
         self.project_paths = ProjectPaths(target_repo=self.target_repo)
@@ -43,14 +58,14 @@ class PlannerRuntime:
                 f"Planner can run only for completed task. task_id={self.source_task_id}"
             )
 
-    def read_role_definition(self) -> str:
-        path = self.roles_dir / "planner.md"
+    def read_role_definition(self, planner_role: str) -> str:
+        path = self.roles_dir / self._get_role_definition_name(planner_role)
         if not path.exists():
             raise FileNotFoundError(f"Planner role definition not found: {path}")
         return path.read_text(encoding="utf-8")
 
-    def read_template(self) -> str:
-        path = self.templates_dir / "planner_prompt.txt"
+    def read_template(self, planner_role: str) -> str:
+        path = self.templates_dir / self._get_template_name(planner_role)
         if not path.exists():
             raise FileNotFoundError(f"Planner prompt template not found: {path}")
         return path.read_text(encoding="utf-8")
@@ -61,14 +76,15 @@ class PlannerRuntime:
             raise FileNotFoundError(f"Planner schema not found: {path}")
         return path.read_text(encoding="utf-8")
 
-    def get_report_path(self, cycle: int) -> Path:
-        return self.planner_dir / f"planner_report_v{cycle}.json"
+    def get_report_path(self, cycle: int, planner_role: str) -> Path:
+        filename = self._get_report_filename(planner_role).format(cycle=cycle)
+        return self.planner_dir / filename
 
-    def get_prompt_path(self, cycle: int) -> Path:
-        return self.planner_dir / f"planner_prompt_v{cycle}.txt"
+    def get_prompt_path(self, cycle: int, planner_role: str) -> Path:
+        return self.planner_dir / f"{planner_role}_prompt_v{cycle}.txt"
 
-    def write_prompt(self, cycle: int, content: str) -> Path:
-        path = self.get_prompt_path(cycle)
+    def write_prompt(self, cycle: int, planner_role: str, content: str) -> Path:
+        path = self.get_prompt_path(cycle=cycle, planner_role=planner_role)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
@@ -107,23 +123,48 @@ class PlannerRuntime:
 
         docs_payload: list[dict[str, str]] = []
         for relative_path in reference_doc_paths:
-            doc_path = self.target_repo / relative_path
+            normalized = str(relative_path).strip()
+            if not normalized:
+                continue
+
+            doc_path = self.target_repo / normalized
             if not doc_path.exists():
-                docs_payload.append(
-                    {
-                        "path": relative_path,
-                        "status": "missing",
-                        "content": "",
-                    }
-                )
                 continue
 
             docs_payload.append(
                 {
-                    "path": relative_path,
+                    "path": normalized,
                     "status": "ok",
                     "content": doc_path.read_text(encoding="utf-8"),
                 }
             )
 
+        if not docs_payload:
+            return "[]"
+
         return json.dumps(docs_payload, indent=2, ensure_ascii=False)
+
+    def build_core_docs_text(self, relative_paths: list[str]) -> str:
+        return self.source_runtime.build_core_docs_text(relative_paths)
+
+    @classmethod
+    def validate_planner_role(cls, planner_role: str) -> str:
+        normalized = str(planner_role).strip()
+        if normalized not in cls._ROLE_TO_TEMPLATE:
+            raise ValueError(f"Unsupported planner role: {planner_role}")
+        return normalized
+
+    @classmethod
+    def _get_template_name(cls, planner_role: str) -> str:
+        normalized = cls.validate_planner_role(planner_role)
+        return cls._ROLE_TO_TEMPLATE[normalized]
+
+    @classmethod
+    def _get_role_definition_name(cls, planner_role: str) -> str:
+        normalized = cls.validate_planner_role(planner_role)
+        return cls._ROLE_TO_DEFINITION[normalized]
+
+    @classmethod
+    def _get_report_filename(cls, planner_role: str) -> str:
+        normalized = cls.validate_planner_role(planner_role)
+        return cls._ROLE_TO_REPORT_FILENAME[normalized]

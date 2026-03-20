@@ -1,4 +1,4 @@
-<!-- src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\roles\planner.md -->
+
 # planner role definition
 
 あなたは planner です。

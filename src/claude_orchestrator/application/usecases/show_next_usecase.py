@@ -10,6 +10,11 @@ from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class ShowNextUseCase:
+    CORE_DOC_PATHS_FOR_TASK_ROUTER = [
+        ".claude_orchestrator/docs/project_core/開発の目的本筋.md",
+        ".claude_orchestrator/docs/task_maps/planner_task_router判断材料マップ.md",
+    ]
+
     def execute(self, repo_path: str, task_id: str) -> dict:
         target_repo = Path(repo_path).resolve()
         project_paths = ProjectPaths(target_repo=target_repo)
@@ -84,9 +89,13 @@ class ShowNextUseCase:
 
         if role == "task_router":
             task_router_skill = runtime.read_skill_text("task_router", "route-task")
+            core_docs_text = runtime.build_core_docs_text(
+                self.CORE_DOC_PATHS_FOR_TASK_ROUTER
+            )
             return render_prompt(
                 template,
                 task_router_skill=task_router_skill,
+                core_docs_text=core_docs_text,
                 **common_kwargs,
             )
 

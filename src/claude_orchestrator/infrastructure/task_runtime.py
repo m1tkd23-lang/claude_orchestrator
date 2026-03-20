@@ -19,6 +19,7 @@ class TaskRuntime:
         self.schemas_dir = self.root / "schemas"
         self.templates_dir = self.root / "templates"
         self.skills_dir = self.root / "skills"
+        self.docs_dir = self.root / "docs"
 
     def ensure_exists(self) -> None:
         if not self.task_dir.exists():
@@ -135,6 +136,21 @@ class TaskRuntime:
 
         return "\n\n".join(sections)
 
+    def read_doc_text(self, relative_path: str) -> str:
+        normalized = self._normalize_doc_relative_path(relative_path)
+        path = self.root / normalized
+        if not path.exists():
+            raise FileNotFoundError(f"Doc not found: {path}")
+        return path.read_text(encoding="utf-8")
+
+    def build_core_docs_text(self, relative_paths: list[str]) -> str:
+        sections: list[str] = []
+        for relative_path in relative_paths:
+            normalized = self._normalize_doc_display_path(relative_path)
+            content = self.read_doc_text(relative_path)
+            sections.append(f"## doc: {normalized}\n{content}")
+        return "\n\n".join(sections)
+
     def write_prompt(self, role: str, cycle: int, content: str) -> Path:
         path = self.get_output_prompt_path(role, cycle)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -145,3 +161,16 @@ class TaskRuntime:
     def _load_json(path: Path) -> dict:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
+
+    @staticmethod
+    def _normalize_doc_relative_path(relative_path: str) -> str:
+        normalized = str(relative_path).replace("\\", "/").strip().lstrip("/")
+        prefix = ".claude_orchestrator/"
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
+        return normalized
+
+    @staticmethod
+    def _normalize_doc_display_path(relative_path: str) -> str:
+        normalized = TaskRuntime._normalize_doc_relative_path(relative_path)
+        return f".claude_orchestrator/{normalized}"

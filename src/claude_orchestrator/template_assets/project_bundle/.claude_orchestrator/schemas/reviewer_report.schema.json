@@ -22,7 +22,8 @@
       "type": "object",
       "properties": {
         "relative_path": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -31,7 +32,8 @@
       "additionalProperties": true
     },
     "task_id": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "role": {
       "type": "string",
@@ -57,24 +59,28 @@
       }
     },
     "summary": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "must_fix": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "nice_to_have": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "risks": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     }
   },
