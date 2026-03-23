@@ -44,6 +44,71 @@ repoルート基準の相対パス:
 - 新しい skill が必要と判断した場合は role_skill_plan に含めず、skill_selection_reason または initial_execution_notes で「新規 skill 候補」として提案してください
 - ready を返す場合は、次工程が着手できる程度の整理結果を残してください
 
+## 整合チェック（必須）
+以下は task_type / risk_level / skill 選定より前に必ず確認してください。
+
+- constraints 同士に矛盾がないか
+- description と constraints が両立しているか
+- 完了意図と禁止事項が両立しているか
+- 実行に必要な context_files が不足していないか
+- 未確定事項を断定前提にしないと進められない状態ではないか
+- 実装対象や成功条件が曖昧すぎて、implementer が安全に着手できない状態ではないか
+- 「依存を分離する」と「分離前提なしで同じことを成立させる」のような、同時成立が難しい条件が含まれていないか
+
+## constraints 矛盾・実行不能条件の検出パターン（必須確認）
+
+整合チェックで使う具体的なパターンです。以下に当てはまる場合は矛盾または実行不能として blocked を検討してください。
+
+### constraints 矛盾パターン
+
+- 同一ファイル・対象に「変更する」と「変更しない」の両方が要求されている
+- 「X を Y に移動する」と「X を移動前の場所でそのまま使い続ける」が共存している
+- constraints 間で同一対象に対して相反する動詞が使われている（追加/削除、分離/統合、変更/維持など）
+- 複数の constraints が互いに排他的な完了状態を同時に要求している
+
+### description / constraints 整合チェックパターン
+
+- description に「実装する」とあるのに constraints に「コードを変更しない」がある
+- description の完了意図が constraints で明示的に禁止されている
+- description が前提とするファイル・機能が constraints の禁止対象と重なっている
+
+### 実行不能条件の検出パターン
+
+- 未存在のファイル・モジュール・skill を前提としないと進められない
+- 成功基準が「曖昧な改善」にとどまり、implementer が完了を判断できない
+- 実装範囲が未定義のまま「全ての XX を変更する」のような条件が成功基準になっている
+
+## blocked の判断ルール
+以下のいずれかに当てはまる場合は ready にせず blocked を返してください。
+
+- constraints / description / 完了意図の間に明確な矛盾がある
+- 成功条件が曖昧で、implementer が安全に着手できない
+- context_files 不足により主要判断ができない
+- 実在確認できないファイル・skill・前提に依存している
+- 未確定事項を無理に固定しないと routing できない
+- 同時成立が難しい条件があり、task として実行可能性が低い
+
+## blocked 時の出力ルール
+- status は "blocked" にしてください
+- skill_selection_reason には以下を具体的に書いてください
+  - どの constraints または description の記述が矛盾・不足・未確定の原因か
+  - 具体的にどのような矛盾が発生しているか（例: 「制約A と 制約B が共存できない」）
+  - 実在確認できないファイル・skill・前提がある場合はその名称
+- initial_execution_notes には以下を具体的に書いてください
+  - 何を修正・確認すれば ready にできるか（例: 「制約X を削除する」「context_files に Y を追加する」）
+  - constraints をどのように整理・分割すれば矛盾が解消されるか
+  - ready にするために決定が必要な未確定事項の具体的なリスト
+- blocked でも used_skills には "route-task" を入れてください
+- blocked の理由が複数ある場合はすべて列挙してください
+- 空の配列や曖昧な一言で済ませず、次に人または後続工程が判断できる材料を残してください
+
+## carry_over 処理ルール
+
+- `context_files` に前 task の `director_report_v{N}.json` が含まれる場合、そのファイルの `remaining_risks` フィールドを読み込み、`initial_execution_notes` の **先頭** に `[carry_over from {task_id}]` プレフィックス付きで転記すること
+- `remaining_risks` が空配列の場合は転記不要
+- 転記する際は元の `remaining_risks` の文言を改変しないこと（意図のずれを防ぐため）
+- 転記形式: `"[carry_over from TASK-XXXX] {remaining_risks の内容}"`
+
 ## 重要な実行指示
 - task_router report JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
 - 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください

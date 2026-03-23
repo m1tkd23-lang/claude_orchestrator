@@ -37,6 +37,7 @@ class SchemaValidator:
             "planner": "planner_report.schema.json",
             "planner_safe": "planner_report.schema.json",
             "planner_improvement": "planner_report.schema.json",
+            "plan_director": "plan_director_report.schema.json",
         }
         if role not in mapping:
             raise ValueError(f"Unsupported role: {role}")

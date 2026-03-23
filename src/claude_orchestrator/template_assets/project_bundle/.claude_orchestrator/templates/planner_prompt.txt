@@ -1,4 +1,3 @@
-# src\claude_orchestrator\template_assets\project_bundle\.claude_orchestrator\templates\planner_prompt.txt
 あなたは planner です。
 
 以下の入力を読み、completed 済み task の結果と指定された docs / task 情報を踏まえて、

@@ -23,6 +23,7 @@ from claude_orchestrator.application.usecases.validate_report_usecase import (
 )
 from claude_orchestrator.gui.dialog_helpers import append_log, show_error, show_info
 from claude_orchestrator.gui.state_helpers import (
+    get_display_target_task_id,
     handle_repo_changed,
     load_selected_task_detail,
     parse_multiline_list,
@@ -30,6 +31,8 @@ from claude_orchestrator.gui.state_helpers import (
     refresh_task_list,
     require_repo_path,
     require_selected_task_id,
+    set_active_pipeline_task,
+    set_selected_task,
 )
 from claude_orchestrator.infrastructure.project_paths import ProjectPaths
 
@@ -46,6 +49,7 @@ class MainWindowActionsMixin:
 
         self.repo_path_edit.setText(selected)
         handle_repo_changed(self, selected)
+        self._reset_auto_approve_next_task()
 
         if not self._auto_run_active:
             self._reset_execution_view()
@@ -54,9 +58,12 @@ class MainWindowActionsMixin:
 
         refresh_task_list(self)
         self._load_remote_session_info_safe()
+        self._clear_pipeline_tab()
+        self._refresh_pipeline_tab()
 
     def on_repo_path_edited(self) -> None:
         handle_repo_changed(self, self.repo_path_edit.text().strip())
+        self._reset_auto_approve_next_task()
 
         if not self._auto_run_active:
             self._reset_execution_view()
@@ -65,6 +72,8 @@ class MainWindowActionsMixin:
 
         refresh_task_list(self)
         self._load_remote_session_info_safe()
+        self._clear_pipeline_tab()
+        self._refresh_pipeline_tab()
 
     def on_check_initialized(self) -> None:
         try:
@@ -77,6 +86,7 @@ class MainWindowActionsMixin:
             append_log(self, f"[INFO] initialized repo confirmed: {project_paths.root}")
             refresh_task_list(self)
             self._load_remote_session_info_safe()
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "初期化確認エラー", exc)
 
@@ -91,6 +101,7 @@ class MainWindowActionsMixin:
 
             refresh_task_list(self)
             self._load_remote_session_info_safe()
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "init-project エラー", exc)
 
@@ -128,6 +139,7 @@ class MainWindowActionsMixin:
             self.constraints_edit.clear()
 
             self._current_task_id = created_task_id
+            set_active_pipeline_task(self, created_task_id)
             refresh_task_list(self)
             load_selected_task_detail(self, created_task_id)
 
@@ -135,6 +147,8 @@ class MainWindowActionsMixin:
                 self._reset_execution_view()
             if not self._planner_active:
                 self._reset_planner_view()
+
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "task作成エラー", exc)
 
@@ -143,6 +157,12 @@ class MainWindowActionsMixin:
             repo_path = require_repo_path(self)
             handle_repo_changed(self, repo_path)
             refresh_task_list(self)
+
+            target_task_id = get_display_target_task_id(self)
+            if target_task_id:
+                load_selected_task_detail(self, target_task_id)
+
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "task一覧更新エラー", exc)
 
@@ -152,7 +172,20 @@ class MainWindowActionsMixin:
             return
 
         try:
-            task_id = str(items[0].data(Qt.UserRole))
+            task_id = str(items[0].data(Qt.UserRole) or "").strip()
+            if not task_id:
+                return
+
+            set_selected_task(self, task_id)
+
+            if (
+                not self._auto_run_active
+                and not self._planner_active
+                and not self._plan_director_active
+                and not self._waiting_next_task_approval
+            ):
+                self._active_pipeline_task_id = ""
+
             load_selected_task_detail(self, task_id)
 
             if not self._auto_run_active:
@@ -160,6 +193,8 @@ class MainWindowActionsMixin:
 
             if not self._planner_active:
                 self._load_existing_planner_data(task_id)
+
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "task詳細読込エラー", exc)
 
@@ -172,11 +207,15 @@ class MainWindowActionsMixin:
             result = ShowNextUseCase().execute(repo_path=repo_path, task_id=task_id)
             self._apply_show_next_result(result)
 
+            set_active_pipeline_task(self, task_id)
+
             append_log(
                 self,
                 "[INFO] show-next completed: "
-                f"task_id={task_id}, role={result['role']}, cycle={result['cycle']}",
+                f"task_id={task_id}, role={result['role']}, "
+                f"cycle={result['cycle']}, revision={result.get('revision', 1)}",
             )
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "show-next エラー", exc)
 
@@ -185,30 +224,41 @@ class MainWindowActionsMixin:
             repo_path = require_repo_path(self)
             handle_repo_changed(self, repo_path)
             task_id = require_selected_task_id(self)
-            role = self.detail_next_role.text().strip()
 
-            if not role or role == "none":
-                raise ValueError("next_role is empty or none.")
+            show_next_result = ShowNextUseCase().execute(
+                repo_path=repo_path,
+                task_id=task_id,
+            )
+            role = str(show_next_result["role"])
+            cycle = int(show_next_result["cycle"])
+            revision = int(show_next_result.get("revision", 1))
 
             result = ValidateReportUseCase().execute(
                 repo_path=repo_path,
                 task_id=task_id,
                 role=role,
+                expected_cycle=cycle,
+                expected_revision=revision,
             )
 
             text = (
                 f"valid: {result['valid']}\n"
                 f"role: {result['role']}\n"
                 f"cycle: {result['cycle']}\n"
+                f"revision: {result['revision']}\n"
                 f"report_path: {result['report_path']}"
             )
             self.validation_result_edit.setPlainText(text)
 
+            set_active_pipeline_task(self, task_id)
+
             append_log(
                 self,
                 "[INFO] validate-report success: "
-                f"task_id={task_id}, role={result['role']}, cycle={result['cycle']}",
+                f"task_id={task_id}, role={result['role']}, "
+                f"cycle={result['cycle']}, revision={result['revision']}",
             )
+            self._refresh_pipeline_tab()
         except Exception as exc:
             self.validation_result_edit.setPlainText(
                 f"ERROR\n{type(exc).__name__}: {exc}"
@@ -221,7 +271,21 @@ class MainWindowActionsMixin:
             handle_repo_changed(self, repo_path)
             task_id = require_selected_task_id(self)
 
-            result = AdvanceTaskUseCase().execute(repo_path=repo_path, task_id=task_id)
+            show_next_result = ShowNextUseCase().execute(
+                repo_path=repo_path,
+                task_id=task_id,
+            )
+            role = str(show_next_result["role"])
+            cycle = int(show_next_result["cycle"])
+            revision = int(show_next_result.get("revision", 1))
+
+            result = AdvanceTaskUseCase().execute(
+                repo_path=repo_path,
+                task_id=task_id,
+                expected_role=role,
+                expected_cycle=cycle,
+                expected_revision=revision,
+            )
 
             append_log(
                 self,
@@ -230,11 +294,14 @@ class MainWindowActionsMixin:
                 f"status={result['status']}, "
                 f"current={result['current_stage']}, "
                 f"next={result['next_role']}, "
-                f"cycle={result['cycle']}",
+                f"cycle={result['cycle']}, "
+                f"revision={result['revision']}",
             )
 
+            set_active_pipeline_task(self, task_id)
             load_selected_task_detail(self, task_id)
             refresh_task_list(self)
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "advance エラー", exc)
 
@@ -258,6 +325,7 @@ class MainWindowActionsMixin:
             self._load_existing_planner_data(task_id)
             self._load_remote_session_info_safe()
             append_log(self, f"[INFO] selected task reloaded: {task_id}")
+            self._refresh_pipeline_tab()
         except Exception as exc:
             show_error(self, "再読込エラー", exc)
 
@@ -270,10 +338,12 @@ class MainWindowActionsMixin:
 
         repo_path = self.repo_path_edit.text().strip()
         if not repo_path:
+            self._refresh_pipeline_tab()
             return
 
         inbox_dir = Path(repo_path) / ".claude_orchestrator" / "tasks" / task_id / "inbox"
         if not inbox_dir.exists():
+            self._refresh_pipeline_tab()
             return
 
         reports = []
@@ -308,3 +378,6 @@ class MainWindowActionsMixin:
             )
             if summary:
                 self._append_monitor_message(summary)
+
+        self._refresh_pipeline_tab()
+

@@ -42,6 +42,46 @@ class TaskIndex:
 
         return items
 
+    def list_task_summaries_for_planner(self) -> list[dict]:
+        """
+        planner / plan_director 向けの軽量タスク一覧を返す。
+
+        重複提案回避や全体進捗把握に必要な最小限の項目に絞り、
+        prompt サイズの膨張を抑える。
+        """
+        self.tasks_root.mkdir(parents=True, exist_ok=True)
+
+        items: list[dict] = []
+
+        for task_dir in sorted(self.tasks_root.iterdir(), key=lambda p: p.name):
+            if not task_dir.is_dir():
+                continue
+
+            task_json_path = task_dir / "task.json"
+            state_json_path = task_dir / "state.json"
+
+            if not task_json_path.exists() or not state_json_path.exists():
+                continue
+
+            task_json = self._load_json(task_json_path)
+            state_json = self._load_json(state_json_path)
+
+            items.append(
+                {
+                    "task_id": task_json.get("task_id", task_dir.name),
+                    "title": task_json.get("title", ""),
+                    "task_type": task_json.get("task_type"),
+                    "risk_level": task_json.get("risk_level"),
+                    "status": state_json.get("status", ""),
+                    "current_stage": state_json.get("current_stage", ""),
+                    "next_role": state_json.get("next_role", ""),
+                    "cycle": state_json.get("cycle", ""),
+                    "last_completed_role": state_json.get("last_completed_role", None),
+                }
+            )
+
+        return items
+
     @staticmethod
     def _load_json(path: Path) -> dict:
         with path.open("r", encoding="utf-8") as f:

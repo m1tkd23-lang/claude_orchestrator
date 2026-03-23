@@ -13,22 +13,50 @@ from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class AdvanceTaskUseCase:
-    def execute(self, repo_path: str, task_id: str) -> dict:
+    def execute(
+        self,
+        repo_path: str,
+        task_id: str,
+        expected_role: str,
+        expected_cycle: int,
+        expected_revision: int,
+    ) -> dict:
         target_repo = Path(repo_path).resolve()
         runtime = TaskRuntime(target_repo=target_repo, task_id=task_id)
 
         state_json = runtime.load_state_json()
         current_role = str(state_json["next_role"])
         current_cycle = int(state_json["cycle"])
+        current_revision = int(state_json.get("revision", 1))
         max_cycles = int(state_json["max_cycles"])
 
         if current_role == "none":
             raise ValueError(f"Task already finished or blocked: {task_id}")
 
+        if current_role != str(expected_role):
+            raise ValueError(
+                "state drift detected: "
+                f"expected_role={expected_role}, actual_role={current_role}"
+            )
+
+        if current_cycle != int(expected_cycle):
+            raise ValueError(
+                "state drift detected: "
+                f"expected_cycle={expected_cycle}, actual_cycle={current_cycle}"
+            )
+
+        if current_revision != int(expected_revision):
+            raise ValueError(
+                "state revision mismatch: "
+                f"expected_revision={expected_revision}, actual_revision={current_revision}"
+            )
+
         ValidateReportUseCase().execute(
             repo_path=repo_path,
             task_id=task_id,
             role=current_role,
+            expected_cycle=current_cycle,
+            expected_revision=current_revision,
         )
 
         report_path = runtime.get_output_json_path(current_role, current_cycle)
@@ -47,6 +75,7 @@ class AdvanceTaskUseCase:
 
         new_state = dict(state_json)
         new_state["cycle"] = next_state_values["cycle"]
+        new_state["revision"] = current_revision + 1
         new_state["status"] = next_state_values["status"]
         new_state["current_stage"] = next_state_values["current_stage"]
         new_state["next_role"] = next_state_values["next_role"]
@@ -60,6 +89,7 @@ class AdvanceTaskUseCase:
             "current_stage": new_state["current_stage"],
             "next_role": new_state["next_role"],
             "cycle": new_state["cycle"],
+            "revision": new_state["revision"],
             "state_path": str(runtime.state_json_path),
         }
 

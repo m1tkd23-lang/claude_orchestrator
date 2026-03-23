@@ -20,6 +20,8 @@ class ProposalStateStore:
         self.state_path = self.planner_dir / f"proposal_states_v{self.cycle}.json"
 
     def initialize_from_report(self, planner_report: dict) -> None:
+        current_map = self.get_state_map()
+
         proposals = planner_report.get("proposals", [])
         payload = {
             "source_task_id": self.source_task_id,
@@ -27,7 +29,10 @@ class ProposalStateStore:
             "proposal_states": [
                 {
                     "proposal_id": str(proposal.get("proposal_id", "")),
-                    "state": "proposed",
+                    "state": current_map.get(
+                        str(proposal.get("proposal_id", "")).strip(),
+                        "proposed",
+                    ),
                 }
                 for proposal in proposals
             ],
@@ -55,7 +60,13 @@ class ProposalStateStore:
         return result
 
     def set_state(self, proposal_id: str, state: str) -> None:
-        if state not in {"proposed", "accepted", "rejected", "deferred"}:
+        if state not in {
+            "proposed",
+            "accepted",
+            "rejected",
+            "deferred",
+            "task_created",
+        }:
             raise ValueError(f"Unsupported proposal state: {state}")
 
         payload = self.load()
@@ -63,7 +74,7 @@ class ProposalStateStore:
 
         found = False
         for item in proposal_states:
-            if str(item.get("proposal_id")) == proposal_id:
+            if str(item.get("proposal_id")).strip() == str(proposal_id).strip():
                 item["state"] = state
                 found = True
                 break
@@ -71,7 +82,7 @@ class ProposalStateStore:
         if not found:
             proposal_states.append(
                 {
-                    "proposal_id": proposal_id,
+                    "proposal_id": str(proposal_id).strip(),
                     "state": state,
                 }
             )

@@ -14,6 +14,10 @@ from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
 )
 from claude_orchestrator.gui.claude_runner import run_claude_print_mode
+from claude_orchestrator.infrastructure.task_execution_lock import (
+    TaskExecutionLock,
+    TaskExecutionOwner,
+)
 from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 RunTaskEventCallback = Callable[[dict], None]
@@ -26,138 +30,68 @@ class RunTaskUseCase:
         repo_path: str,
         task_id: str,
         event_callback: RunTaskEventCallback | None = None,
+        executor_type: str | None = None,
+        executor_id: str | None = None,
+        executor_label: str | None = None,
     ) -> dict:
+        resolved_repo_path = str(Path(repo_path).resolve())
         runtime = TaskRuntime(
-            target_repo=Path(repo_path).resolve(),
+            target_repo=Path(resolved_repo_path),
             task_id=task_id,
         )
-        initial_state = runtime.load_state_json()
-        initial_next_role = str(initial_state.get("next_role", ""))
-        initial_cycle = str(initial_state.get("cycle", ""))
+        owner = TaskExecutionOwner.normalize(
+            executor_type=executor_type,
+            executor_id=executor_id,
+            executor_label=executor_label,
+        )
+        execution_lock = TaskExecutionLock(
+            repo_path=resolved_repo_path,
+            task_id=task_id,
+        )
+        execution_lock.acquire(owner=owner)
 
-        if initial_next_role == "none":
-            self._emit(
-                event_callback,
-                {
-                    "type": "status_changed",
-                    "status": "completed",
-                    "step": "idle",
-                    "role": "none",
-                    "cycle": initial_cycle,
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "monitor_message",
-                    "message": "completed",
-                },
-            )
+        try:
             self._emit(
                 event_callback,
                 {
                     "type": "log_message",
-                    "message": f"[INFO] task already completed: {task_id}",
+                    "message": (
+                        "[INFO] execution lock acquired: "
+                        f"task_id={task_id}, "
+                        f"owner_type={owner.owner_type}, "
+                        f"owner_id={owner.owner_id}"
+                    ),
                 },
             )
-            self._emit(
-                event_callback,
-                {
-                    "type": "task_completed",
-                    "task_id": task_id,
-                    "cycle": initial_cycle,
-                    "status": "completed",
-                },
-            )
-            return {
-                "task_id": task_id,
-                "status": "completed",
-                "cycle": int(initial_state.get("cycle", 1)),
-                "current_stage": str(initial_state.get("current_stage", "")),
-                "next_role": "none",
-                "state_path": str(runtime.state_json_path),
-            }
 
-        self._emit(
-            event_callback,
-            {
-                "type": "status_changed",
-                "status": "running",
-                "step": "starting",
-                "role": initial_next_role,
-                "cycle": initial_cycle,
-            },
-        )
-        self._emit(
-            event_callback,
-            {
-                "type": "monitor_message",
-                "message": "process started",
-            },
-        )
-        self._emit(
-            event_callback,
-            {
-                "type": "monitor_message",
-                "message": f"role / cycle: {initial_next_role} / {initial_cycle}",
-            },
-        )
-        self._emit(
-            event_callback,
-            {
-                "type": "monitor_message",
-                "message": f"cwd: {Path(repo_path).resolve()}",
-            },
-        )
-        self._emit(
-            event_callback,
-            {
-                "type": "log_message",
-                "message": f"[INFO] auto run started: task_id={task_id}",
-            },
-        )
+            initial_state = runtime.load_state_json()
+            initial_next_role = str(initial_state.get("next_role", ""))
+            initial_cycle = str(initial_state.get("cycle", ""))
+            initial_revision = str(initial_state.get("revision", 1))
 
-        last_advance_result: dict | None = None
-
-        while True:
-            advance_result = self._run_single_cycle_step(
-                repo_path=repo_path,
-                task_id=task_id,
-                event_callback=event_callback,
-            )
-            last_advance_result = advance_result
-
-            next_role = str(advance_result["next_role"])
-            cycle = str(advance_result["cycle"])
-            status = str(advance_result["status"])
-
-            if next_role == "none" or status in {"completed", "blocked", "stopped"}:
-                final_ui_status = "completed" if status == "completed" else "stopped"
+            if initial_next_role == "none":
                 self._emit(
                     event_callback,
                     {
                         "type": "status_changed",
-                        "status": final_ui_status,
-                        "step": "stopped",
+                        "status": "completed",
+                        "step": "idle",
                         "role": "none",
-                        "cycle": cycle,
+                        "cycle": initial_cycle,
                     },
                 )
                 self._emit(
                     event_callback,
                     {
                         "type": "monitor_message",
-                        "message": "completed" if status == "completed" else status,
+                        "message": "completed",
                     },
                 )
                 self._emit(
                     event_callback,
                     {
                         "type": "log_message",
-                        "message": (
-                            "[INFO] auto run finished: "
-                            f"task_id={task_id}, status={status}, cycle={cycle}"
-                        ),
+                        "message": f"[INFO] task already completed: {task_id}",
                     },
                 )
                 self._emit(
@@ -165,39 +99,160 @@ class RunTaskUseCase:
                     {
                         "type": "task_completed",
                         "task_id": task_id,
-                        "cycle": cycle,
-                        "status": status,
+                        "cycle": initial_cycle,
+                        "status": "completed",
                     },
                 )
-                return advance_result
+                return {
+                    "task_id": task_id,
+                    "status": "completed",
+                    "cycle": int(initial_state.get("cycle", 1)),
+                    "revision": int(initial_state.get("revision", 1)),
+                    "current_stage": str(initial_state.get("current_stage", "")),
+                    "next_role": "none",
+                    "state_path": str(runtime.state_json_path),
+                }
 
             self._emit(
                 event_callback,
                 {
                     "type": "status_changed",
                     "status": "running",
-                    "step": "next role ready",
-                    "role": next_role,
-                    "cycle": cycle,
+                    "step": "starting",
+                    "role": initial_next_role,
+                    "cycle": initial_cycle,
                 },
             )
             self._emit(
                 event_callback,
                 {
                     "type": "monitor_message",
-                    "message": f"advanced to next role: {next_role} (cycle={cycle})",
+                    "message": "process started",
+                },
+            )
+            self._emit(
+                event_callback,
+                {
+                    "type": "monitor_message",
+                    "message": (
+                        f"role / cycle / revision: "
+                        f"{initial_next_role} / {initial_cycle} / {initial_revision}"
+                    ),
+                },
+            )
+            self._emit(
+                event_callback,
+                {
+                    "type": "monitor_message",
+                    "message": f"cwd: {resolved_repo_path}",
+                },
+            )
+            self._emit(
+                event_callback,
+                {
+                    "type": "log_message",
+                    "message": (
+                        "[INFO] auto run started: "
+                        f"task_id={task_id}, owner={owner.owner_label}"
+                    ),
                 },
             )
 
-        # safety fallback
-        return last_advance_result or {
-            "task_id": task_id,
-            "status": "stopped",
-            "cycle": int(initial_state.get("cycle", 1)),
-            "current_stage": str(initial_state.get("current_stage", "")),
-            "next_role": str(initial_state.get("next_role", "")),
-            "state_path": str(runtime.state_json_path),
-        }
+            last_advance_result: dict | None = None
+
+            while True:
+                advance_result = self._run_single_cycle_step(
+                    repo_path=resolved_repo_path,
+                    task_id=task_id,
+                    event_callback=event_callback,
+                )
+                last_advance_result = advance_result
+
+                next_role = str(advance_result["next_role"])
+                cycle = str(advance_result["cycle"])
+                status = str(advance_result["status"])
+
+                if next_role == "none" or status in {"completed", "blocked", "stopped"}:
+                    final_ui_status = "completed" if status == "completed" else "stopped"
+                    self._emit(
+                        event_callback,
+                        {
+                            "type": "status_changed",
+                            "status": final_ui_status,
+                            "step": "stopped",
+                            "role": "none",
+                            "cycle": cycle,
+                        },
+                    )
+                    self._emit(
+                        event_callback,
+                        {
+                            "type": "monitor_message",
+                            "message": "completed" if status == "completed" else status,
+                        },
+                    )
+                    self._emit(
+                        event_callback,
+                        {
+                            "type": "log_message",
+                            "message": (
+                                "[INFO] auto run finished: "
+                                f"task_id={task_id}, status={status}, cycle={cycle}"
+                            ),
+                        },
+                    )
+                    self._emit(
+                        event_callback,
+                        {
+                            "type": "task_completed",
+                            "task_id": task_id,
+                            "cycle": cycle,
+                            "status": status,
+                        },
+                    )
+                    return advance_result
+
+                self._emit(
+                    event_callback,
+                    {
+                        "type": "status_changed",
+                        "status": "running",
+                        "step": "next role ready",
+                        "role": next_role,
+                        "cycle": cycle,
+                    },
+                )
+                self._emit(
+                    event_callback,
+                    {
+                        "type": "monitor_message",
+                        "message": f"advanced to next role: {next_role} (cycle={cycle})",
+                    },
+                )
+
+            return last_advance_result or {
+                "task_id": task_id,
+                "status": "stopped",
+                "cycle": int(initial_state.get("cycle", 1)),
+                "revision": int(initial_state.get("revision", 1)),
+                "current_stage": str(initial_state.get("current_stage", "")),
+                "next_role": str(initial_state.get("next_role", "")),
+                "state_path": str(runtime.state_json_path),
+            }
+        finally:
+            execution_lock.release(owner=owner)
+            self._emit(
+                event_callback,
+                {
+                    "type": "log_message",
+                    "message": (
+                        "[INFO] execution lock released: "
+                        f"task_id={task_id}, "
+                        f"owner_type={owner.owner_type}, "
+                        f"owner_id={owner.owner_id}"
+                    ),
+                },
+            )
 
     def _run_single_cycle_step(
         self,
@@ -229,7 +284,8 @@ class RunTaskUseCase:
         )
 
         role = str(show_next_result["role"])
-        cycle = str(show_next_result["cycle"])
+        cycle = int(show_next_result["cycle"])
+        revision = int(show_next_result.get("revision", 1))
         prompt_path = str(show_next_result["prompt_path"])
         output_json_path = str(show_next_result["output_json_path"])
 
@@ -240,7 +296,7 @@ class RunTaskUseCase:
                 "status": "running",
                 "step": "show-next",
                 "role": role,
-                "cycle": cycle,
+                "cycle": str(cycle),
             },
         )
         self._emit(
@@ -254,7 +310,7 @@ class RunTaskUseCase:
             event_callback,
             {
                 "type": "monitor_message",
-                "message": f"role / cycle: {role} / {cycle}",
+                "message": f"role / cycle / revision: {role} / {cycle} / {revision}",
             },
         )
         self._emit(
@@ -263,7 +319,7 @@ class RunTaskUseCase:
                 "type": "log_message",
                 "message": (
                     "[INFO] show-next completed: "
-                    f"task_id={task_id}, role={role}, cycle={cycle}"
+                    f"task_id={task_id}, role={role}, cycle={cycle}, revision={revision}"
                 ),
             },
         )
@@ -279,7 +335,7 @@ class RunTaskUseCase:
                 "status": "running",
                 "step": "claude",
                 "role": role,
-                "cycle": cycle,
+                "cycle": str(cycle),
             },
         )
         self._emit(
@@ -302,7 +358,7 @@ class RunTaskUseCase:
                 "type": "log_message",
                 "message": (
                     "[INFO] claude step started: "
-                    f"task_id={task_id}, role={role}, cycle={cycle}"
+                    f"task_id={task_id}, role={role}, cycle={cycle}, revision={revision}"
                 ),
             },
         )
@@ -335,64 +391,16 @@ class RunTaskUseCase:
         stderr_text = claude_result.stderr.strip()
 
         if stdout_text:
-            self._emit(
-                event_callback,
-                {
-                    "type": "monitor_message",
-                    "message": "stdout",
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "monitor_message",
-                    "message": stdout_text,
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": "[INFO] claude stdout:",
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": stdout_text,
-                },
-            )
+            self._emit(event_callback, {"type": "monitor_message", "message": "stdout"})
+            self._emit(event_callback, {"type": "monitor_message", "message": stdout_text})
+            self._emit(event_callback, {"type": "log_message", "message": "[INFO] claude stdout:"})
+            self._emit(event_callback, {"type": "log_message", "message": stdout_text})
 
         if stderr_text:
-            self._emit(
-                event_callback,
-                {
-                    "type": "monitor_message",
-                    "message": "stderr",
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "monitor_message",
-                    "message": stderr_text,
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": "[INFO] claude stderr:",
-                },
-            )
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": stderr_text,
-                },
-            )
+            self._emit(event_callback, {"type": "monitor_message", "message": "stderr"})
+            self._emit(event_callback, {"type": "monitor_message", "message": stderr_text})
+            self._emit(event_callback, {"type": "log_message", "message": "[INFO] claude stderr:"})
+            self._emit(event_callback, {"type": "log_message", "message": stderr_text})
 
         if claude_result.returncode != 0:
             raise RuntimeError(
@@ -425,18 +433,21 @@ class RunTaskUseCase:
                 "status": "running",
                 "step": "validate-report",
                 "role": role,
-                "cycle": cycle,
+                "cycle": str(cycle),
             },
         )
         validate_result = ValidateReportUseCase().execute(
             repo_path=repo_path,
             task_id=task_id,
             role=role,
+            expected_cycle=cycle,
+            expected_revision=revision,
         )
         validation_text = (
             f"valid: {validate_result['valid']}\n"
             f"role: {validate_result['role']}\n"
             f"cycle: {validate_result['cycle']}\n"
+            f"revision: {validate_result['revision']}\n"
             f"report_path: {validate_result['report_path']}"
         )
         self._emit(
@@ -461,7 +472,8 @@ class RunTaskUseCase:
                     "[INFO] validate-report success: "
                     f"task_id={task_id}, "
                     f"role={validate_result['role']}, "
-                    f"cycle={validate_result['cycle']}"
+                    f"cycle={validate_result['cycle']}, "
+                    f"revision={validate_result['revision']}"
                 ),
             },
         )
@@ -473,12 +485,15 @@ class RunTaskUseCase:
                 "status": "running",
                 "step": "advance",
                 "role": role,
-                "cycle": cycle,
+                "cycle": str(cycle),
             },
         )
         advance_result = AdvanceTaskUseCase().execute(
             repo_path=repo_path,
             task_id=task_id,
+            expected_role=role,
+            expected_cycle=cycle,
+            expected_revision=revision,
         )
         self._emit(
             event_callback,
@@ -488,7 +503,8 @@ class RunTaskUseCase:
                     "advanced to next role: "
                     f"{advance_result['next_role']} "
                     f"(status={advance_result['status']}, "
-                    f"cycle={advance_result['cycle']})"
+                    f"cycle={advance_result['cycle']}, "
+                    f"revision={advance_result['revision']})"
                 ),
             },
         )
@@ -502,7 +518,8 @@ class RunTaskUseCase:
                     f"status={advance_result['status']}, "
                     f"current={advance_result['current_stage']}, "
                     f"next={advance_result['next_role']}, "
-                    f"cycle={advance_result['cycle']}"
+                    f"cycle={advance_result['cycle']}, "
+                    f"revision={advance_result['revision']}"
                 ),
             },
         )

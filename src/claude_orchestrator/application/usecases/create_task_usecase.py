@@ -20,6 +20,7 @@ class CreateTaskUseCase:
         description: str,
         context_files: list[str] | None = None,
         constraints: list[str] | None = None,
+        initial_execution_notes: list[str] | None = None,
     ) -> Path:
         target_repo = Path(repo_path).resolve()
         paths = ProjectPaths(target_repo=target_repo)
@@ -46,6 +47,7 @@ class CreateTaskUseCase:
             target_repo=target_repo,
             context_files=context_files,
             constraints=constraints,
+            initial_execution_notes=initial_execution_notes,
         )
         state_json = build_state_json(
             task_id=task_id,

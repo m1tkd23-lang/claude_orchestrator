@@ -14,6 +14,9 @@ class GenerateNextTaskProposalsUseCase:
     CORE_DOC_PATHS_FOR_PLANNER = [
         ".claude_orchestrator/docs/project_core/開発の目的本筋.md",
         ".claude_orchestrator/docs/task_maps/planner_task_router判断材料マップ.md",
+        ".claude_orchestrator/docs/task_maps/role別最小参照マップ.md",
+        ".claude_orchestrator/docs/task_maps/TASKフロー全体図.md",
+        ".claude_orchestrator/docs/task_history/過去TASK作業記録.md",
     ]
 
     def execute(
@@ -35,6 +38,8 @@ class GenerateNextTaskProposalsUseCase:
 
         task_json = runtime.load_source_task_json()
         state_json = runtime.load_source_state_json()
+        project_config = runtime.load_project_config()
+        development_mode = runtime.get_development_mode()
         cycle = int(state_json["cycle"])
 
         role_definition = runtime.read_role_definition(planner_role)
@@ -52,6 +57,8 @@ class GenerateNextTaskProposalsUseCase:
             cycle=cycle,
             repo_path=str(target_repo),
             planner_role=planner_role,
+            development_mode=development_mode,
+            project_config=project_config,
             role_definition=role_definition,
             template=template,
             task_json=task_json,
@@ -102,6 +109,7 @@ class GenerateNextTaskProposalsUseCase:
         return {
             "source_task_id": source_task_id,
             "planner_role": planner_role,
+            "development_mode": development_mode,
             "cycle": cycle,
             "prompt_path": str(prompt_path),
             "output_json_path": str(output_json_path),
@@ -118,6 +126,8 @@ class GenerateNextTaskProposalsUseCase:
         cycle: int,
         repo_path: str,
         planner_role: str,
+        development_mode: str,
+        project_config: dict,
         role_definition: str,
         template: str,
         task_json: dict,
@@ -133,12 +143,15 @@ class GenerateNextTaskProposalsUseCase:
     ) -> str:
         task_json_text = json.dumps(task_json, indent=2, ensure_ascii=False)
         state_json_text = json.dumps(state_json, indent=2, ensure_ascii=False)
+        project_config_json_text = json.dumps(project_config, indent=2, ensure_ascii=False)
 
         return render_prompt(
             template,
             role_definition=role_definition,
             task_json=task_json_text,
             state_json=state_json_text,
+            project_config_json=project_config_json_text,
+            development_mode=development_mode,
             implementer_report_json=implementer_report_json,
             reviewer_report_json=reviewer_report_json,
             director_report_json=director_report_json,

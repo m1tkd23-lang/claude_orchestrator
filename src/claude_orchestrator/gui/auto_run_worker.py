@@ -15,13 +15,24 @@ class AutoRunWorker(QObject):
     task_detail_requested = Signal(str)
     task_list_refresh_requested = Signal()
     error_signal = Signal(str, str)
-    completed_signal = Signal(str, str)
+    completed_signal = Signal(str, str, str)
     finished = Signal()
 
-    def __init__(self, *, repo_path: str, task_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        repo_path: str,
+        task_id: str,
+        executor_type: str = "gui",
+        executor_id: str = "gui-main-window",
+        executor_label: str = "GUI",
+    ) -> None:
         super().__init__()
         self.repo_path = repo_path
         self.task_id = task_id
+        self.executor_type = executor_type
+        self.executor_id = executor_id
+        self.executor_label = executor_label
 
     def run(self) -> None:
         try:
@@ -29,6 +40,9 @@ class AutoRunWorker(QObject):
                 repo_path=self.repo_path,
                 task_id=self.task_id,
                 event_callback=self._handle_event,
+                executor_type=self.executor_type,
+                executor_id=self.executor_id,
+                executor_label=self.executor_label,
             )
         except Exception as exc:
             self.error_signal.emit("Claude自動実行エラー", f"{type(exc).__name__}: {exc}")
@@ -75,5 +89,6 @@ class AutoRunWorker(QObject):
             self.completed_signal.emit(
                 str(event.get("task_id", self.task_id)),
                 str(event.get("cycle", "")),
+                str(event.get("status", "")),
             )
             return

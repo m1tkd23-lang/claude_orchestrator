@@ -26,6 +26,7 @@ class ShowNextUseCase:
 
         role = str(state_json["next_role"])
         cycle = int(state_json["cycle"])
+        revision = int(state_json.get("revision", 1))
 
         if role == "none":
             raise ValueError(f"Task already finished or no next role: {task_id}")
@@ -55,8 +56,17 @@ class ShowNextUseCase:
             "task_id": task_id,
             "role": role,
             "cycle": cycle,
+            "revision": revision,
             "prompt_path": str(prompt_path),
             "output_json_path": str(output_json_path),
+            "state_snapshot": {
+                "current_stage": str(state_json.get("current_stage", "")),
+                "next_role": role,
+                "cycle": cycle,
+                "revision": revision,
+                "status": str(state_json.get("status", "")),
+                "last_completed_role": str(state_json.get("last_completed_role", "")),
+            },
         }
 
     def _build_prompt(

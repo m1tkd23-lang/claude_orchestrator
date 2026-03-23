@@ -5,6 +5,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -161,8 +162,17 @@ def _build_planner_group(window: Any) -> QGroupBox:
     layout = QVBoxLayout(group)
 
     top_row = QHBoxLayout()
+    window.planner_role_combo = QComboBox()
+    window.planner_role_combo.addItem("planner_safe", "planner_safe")
+    window.planner_role_combo.addItem("planner_improvement", "planner_improvement")
+
     window.btn_generate_next_tasks = QPushButton("次タスク案作成")
+    window.btn_run_plan_director = QPushButton("plan_director 実行")
+
+    top_row.addWidget(QLabel("planner role"))
+    top_row.addWidget(window.planner_role_combo)
     top_row.addWidget(window.btn_generate_next_tasks)
+    top_row.addWidget(window.btn_run_plan_director)
     top_row.addStretch()
 
     splitter = QSplitter(Qt.Horizontal)
@@ -203,9 +213,43 @@ def _build_planner_group(window: Any) -> QGroupBox:
     action_row.addWidget(window.btn_defer_proposal)
     action_row.addStretch()
 
+    plan_group = QGroupBox("plan_director 結果")
+    plan_layout = QGridLayout(plan_group)
+
+    window.plan_director_decision_edit = QLineEdit()
+    window.plan_director_selected_proposal_edit = QLineEdit()
+    window.plan_director_reason_edit = QPlainTextEdit()
+    window.plan_director_scores_edit = QPlainTextEdit()
+
+    window.plan_director_decision_edit.setReadOnly(True)
+    window.plan_director_selected_proposal_edit.setReadOnly(True)
+    window.plan_director_reason_edit.setReadOnly(True)
+    window.plan_director_scores_edit.setReadOnly(True)
+    window.plan_director_reason_edit.setFixedHeight(80)
+    window.plan_director_scores_edit.setFixedHeight(140)
+
+    plan_layout.addWidget(QLabel("decision"), 0, 0)
+    plan_layout.addWidget(window.plan_director_decision_edit, 0, 1)
+    plan_layout.addWidget(QLabel("selected proposal"), 1, 0)
+    plan_layout.addWidget(window.plan_director_selected_proposal_edit, 1, 1)
+    plan_layout.addWidget(QLabel("selection reason"), 2, 0)
+    plan_layout.addWidget(window.plan_director_reason_edit, 2, 1)
+    plan_layout.addWidget(QLabel("scores"), 3, 0)
+    plan_layout.addWidget(window.plan_director_scores_edit, 3, 1)
+
+    plan_action_row = QHBoxLayout()
+    window.btn_approve_next_task = QPushButton("次task作成を承認")
+    window.btn_skip_next_task = QPushButton("今回は作成しない")
+
+    plan_action_row.addWidget(window.btn_approve_next_task)
+    plan_action_row.addWidget(window.btn_skip_next_task)
+    plan_action_row.addStretch()
+
     right_layout.addWidget(QLabel("proposal detail"))
     right_layout.addWidget(window.planner_proposal_detail_edit)
     right_layout.addLayout(action_row)
+    right_layout.addWidget(plan_group)
+    right_layout.addLayout(plan_action_row)
 
     splitter.addWidget(left_widget)
     splitter.addWidget(right_widget)

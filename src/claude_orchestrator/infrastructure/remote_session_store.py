@@ -29,6 +29,17 @@ class RemoteSessionInfo:
     console_log_path: str
     server_pid: int | None
 
+    approval_mode: str
+    stop_after_current_task_requested: bool
+    waiting_next_task_approval: bool
+    last_plan_director_decision: str
+    last_plan_director_selected_proposal_id: str
+    last_plan_director_selection_reason: str
+    last_planner_role: str
+    post_run_source_task_id: str
+    active_planner_role: str
+    selected_proposal_planner_role: str
+
     def to_dict(self) -> dict:
         return {
             "repo_path": self.repo_path,
@@ -48,6 +59,16 @@ class RemoteSessionInfo:
             "permission_mode": self.permission_mode,
             "console_log_path": self.console_log_path,
             "server_pid": self.server_pid,
+            "approval_mode": self.approval_mode,
+            "stop_after_current_task_requested": self.stop_after_current_task_requested,
+            "waiting_next_task_approval": self.waiting_next_task_approval,
+            "last_plan_director_decision": self.last_plan_director_decision,
+            "last_plan_director_selected_proposal_id": self.last_plan_director_selected_proposal_id,
+            "last_plan_director_selection_reason": self.last_plan_director_selection_reason,
+            "last_planner_role": self.last_planner_role,
+            "post_run_source_task_id": self.post_run_source_task_id,
+            "active_planner_role": self.active_planner_role,
+            "selected_proposal_planner_role": self.selected_proposal_planner_role,
         }
 
 
@@ -55,6 +76,7 @@ class RemoteSessionStore:
     DEFAULT_MENU = "main"
     DEFAULT_SPAWN_MODE = "same-dir"
     DEFAULT_PERMISSION_MODE = "default"
+    DEFAULT_PLANNER_ROLE = "planner_safe"
 
     def __init__(self, *, repo_path: str) -> None:
         self.repo_path = str(Path(repo_path).resolve())
@@ -91,6 +113,18 @@ class RemoteSessionStore:
             permission_mode=str(payload["permission_mode"]),
             console_log_path=str(payload["console_log_path"]),
             server_pid=payload["server_pid"],
+            approval_mode=str(payload["approval_mode"]),
+            stop_after_current_task_requested=bool(payload["stop_after_current_task_requested"]),
+            waiting_next_task_approval=bool(payload["waiting_next_task_approval"]),
+            last_plan_director_decision=str(payload["last_plan_director_decision"]),
+            last_plan_director_selected_proposal_id=str(
+                payload["last_plan_director_selected_proposal_id"]
+            ),
+            last_plan_director_selection_reason=str(payload["last_plan_director_selection_reason"]),
+            last_planner_role=str(payload["last_planner_role"]),
+            post_run_source_task_id=str(payload["post_run_source_task_id"]),
+            active_planner_role=str(payload["active_planner_role"]),
+            selected_proposal_planner_role=str(payload["selected_proposal_planner_role"]),
         )
 
     def save(self, payload: dict) -> Path:
@@ -138,36 +172,41 @@ class RemoteSessionStore:
         )
         current["console_log_path"] = str(console_log_path).strip()
         current["server_pid"] = server_pid
-        return self.save(current)
 
-    def mark_stopped(self) -> Path:
-        current = self.load()
-        current["repo_path"] = self.repo_path
-        current["status"] = "stopped"
-        current["last_updated_at"] = self._now_iso()
+        current["approval_mode"] = "manual"
+        current["stop_after_current_task_requested"] = False
+        current["waiting_next_task_approval"] = False
+        current["last_plan_director_decision"] = ""
+        current["last_plan_director_selected_proposal_id"] = ""
+        current["last_plan_director_selection_reason"] = ""
+        current["last_planner_role"] = self.DEFAULT_PLANNER_ROLE
+        current["post_run_source_task_id"] = ""
+        current["active_planner_role"] = self.DEFAULT_PLANNER_ROLE
+        current["selected_proposal_planner_role"] = ""
+
         return self.save(current)
 
     def reset_operator_state(self) -> Path:
         current = self.load()
-        current["repo_path"] = self.repo_path
         current["selected_task_id"] = ""
         current["selected_source_task_id"] = ""
         current["selected_proposal_id"] = ""
         current["current_menu"] = self.DEFAULT_MENU
         current["previous_menu"] = self.DEFAULT_MENU
         current["last_message"] = ""
+
+        current["approval_mode"] = "manual"
+        current["stop_after_current_task_requested"] = False
+        current["waiting_next_task_approval"] = False
+        current["active_planner_role"] = self.DEFAULT_PLANNER_ROLE
+        current["selected_proposal_planner_role"] = ""
+
         current["last_updated_at"] = self._now_iso()
         return self.save(current)
 
     def clear(self) -> Path:
         payload = self._build_default_payload()
         return self.save(payload)
-
-    def exists(self) -> bool:
-        return self.state_path.exists()
-
-    def get_state_path(self) -> Path:
-        return self.state_path
 
     def _build_default_payload(self) -> dict:
         return {
@@ -188,45 +227,42 @@ class RemoteSessionStore:
             "permission_mode": self.DEFAULT_PERMISSION_MODE,
             "console_log_path": "",
             "server_pid": None,
+            "approval_mode": "manual",
+            "stop_after_current_task_requested": False,
+            "waiting_next_task_approval": False,
+            "last_plan_director_decision": "",
+            "last_plan_director_selected_proposal_id": "",
+            "last_plan_director_selection_reason": "",
+            "last_planner_role": self.DEFAULT_PLANNER_ROLE,
+            "post_run_source_task_id": "",
+            "active_planner_role": self.DEFAULT_PLANNER_ROLE,
+            "selected_proposal_planner_role": "",
         }
 
     def _normalize_payload(self, payload: dict) -> dict:
-        server_pid = payload.get("server_pid")
-        if isinstance(server_pid, str) and server_pid.strip().isdigit():
-            server_pid = int(server_pid.strip())
-        elif not isinstance(server_pid, int):
-            server_pid = None
-
-        return {
-            "repo_path": str(payload.get("repo_path", self.repo_path)),
-            "session_name": str(payload.get("session_name", "")).strip(),
-            "status": str(payload.get("status", "not_started")).strip() or "not_started",
-            "mode": str(payload.get("mode", "remote-control")).strip() or "remote-control",
-            "last_started_at": str(payload.get("last_started_at", "")).strip(),
-            "last_updated_at": str(payload.get("last_updated_at", "")).strip()
-            or self._now_iso(),
-            "selected_task_id": str(payload.get("selected_task_id", "")).strip(),
-            "selected_source_task_id": str(
-                payload.get("selected_source_task_id", "")
-            ).strip(),
-            "selected_proposal_id": str(payload.get("selected_proposal_id", "")).strip(),
-            "current_menu": str(payload.get("current_menu", self.DEFAULT_MENU)).strip()
-            or self.DEFAULT_MENU,
-            "previous_menu": str(payload.get("previous_menu", self.DEFAULT_MENU)).strip()
-            or self.DEFAULT_MENU,
-            "last_message": str(payload.get("last_message", "")).strip(),
-            "bridge_url": str(payload.get("bridge_url", "")).strip(),
-            "spawn_mode": str(
-                payload.get("spawn_mode", self.DEFAULT_SPAWN_MODE)
-            ).strip()
-            or self.DEFAULT_SPAWN_MODE,
-            "permission_mode": str(
-                payload.get("permission_mode", self.DEFAULT_PERMISSION_MODE)
-            ).strip()
-            or self.DEFAULT_PERMISSION_MODE,
-            "console_log_path": str(payload.get("console_log_path", "")).strip(),
-            "server_pid": server_pid,
+        normalized = {
+            **self._build_default_payload(),
+            **payload,
         }
+
+        for key in (
+            "last_planner_role",
+            "active_planner_role",
+            "selected_proposal_planner_role",
+        ):
+            value = str(normalized.get(key, "")).strip()
+            if key == "selected_proposal_planner_role" and not value:
+                normalized[key] = ""
+                continue
+            if value not in {"planner_safe", "planner_improvement"}:
+                normalized[key] = self.DEFAULT_PLANNER_ROLE
+            else:
+                normalized[key] = value
+
+        approval_mode = str(normalized.get("approval_mode", "manual")).strip()
+        normalized["approval_mode"] = approval_mode if approval_mode in {"manual", "auto"} else "manual"
+
+        return normalized
 
     @staticmethod
     def _now_iso() -> str:

@@ -25,6 +25,12 @@ class PlannerRuntime:
         "planner_improvement": "planner_improvement_report_v{cycle}.json",
     }
 
+    _SUPPORTED_DEVELOPMENT_MODES = {
+        "mainline",
+        "maintenance",
+    }
+    _DEFAULT_DEVELOPMENT_MODE = "maintenance"
+
     def __init__(self, target_repo: Path, source_task_id: str) -> None:
         self.target_repo = target_repo.resolve()
         self.project_paths = ProjectPaths(target_repo=self.target_repo)
@@ -57,6 +63,18 @@ class PlannerRuntime:
             raise ValueError(
                 f"Planner can run only for completed task. task_id={self.source_task_id}"
             )
+
+    def load_project_config(self) -> dict:
+        return self.project_paths.load_project_config()
+
+    def get_development_mode(self) -> str:
+        project_config = self.load_project_config()
+        raw_value = str(
+            project_config.get("development_mode", self._DEFAULT_DEVELOPMENT_MODE)
+        ).strip()
+        if raw_value in self._SUPPORTED_DEVELOPMENT_MODES:
+            return raw_value
+        return self._DEFAULT_DEVELOPMENT_MODE
 
     def read_role_definition(self, planner_role: str) -> str:
         path = self.roles_dir / self._get_role_definition_name(planner_role)
@@ -112,7 +130,7 @@ class PlannerRuntime:
 
     def build_task_list_summary(self) -> str:
         index = TaskIndex(tasks_root=self.project_paths.tasks_dir)
-        tasks = index.list_task_statuses()
+        tasks = index.list_task_summaries_for_planner()
         if not tasks:
             return "[]"
         return json.dumps(tasks, indent=2, ensure_ascii=False)

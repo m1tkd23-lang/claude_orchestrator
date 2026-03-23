@@ -9,11 +9,11 @@ class RemoteOperatorRenderer:
             [
                 "現在の操作候補です",
                 "",
-                "1. in_progress task を実行",
-                "2. completed task から次タスク案を作成",
-                "3. task 一覧を表示",
-                "4. 特定 task を選択",
-                "5. 終了",
+                "[1] in_progress task を実行",
+                "[2] completed task の後工程を操作",
+                "[3] task 一覧を表示",
+                "[4] 特定 task を選択",
+                "[5] 終了",
                 "",
                 "番号で入力してください",
             ]
@@ -36,7 +36,7 @@ class RemoteOperatorRenderer:
         else:
             for idx, task in enumerate(tasks, start=1):
                 lines.append(
-                    f"{idx}. {task['task_id']} | "
+                    f"[{idx}] {task['task_id']} | "
                     f"status={task['status']} | "
                     f"cycle={task['cycle']} | "
                     f"title={task['title']}"
@@ -45,7 +45,7 @@ class RemoteOperatorRenderer:
         lines.extend(
             [
                 "",
-                "0. 戻る",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -65,7 +65,7 @@ class RemoteOperatorRenderer:
                 [
                     "選択中 task がありません。",
                     "",
-                    "0. 戻る",
+                    "[0] 戻る",
                     "",
                     "番号で入力してください",
                 ]
@@ -82,20 +82,30 @@ class RemoteOperatorRenderer:
                 f"next_role: {task['next_role']}",
                 f"cycle: {task['cycle']}",
                 "",
-                "1. task 詳細を再表示",
+                "[1] task 詳細を再表示",
             ]
         )
 
         if status == "in_progress":
-            lines.append("2. この task を実行")
+            lines.extend(
+                [
+                    "[2] この task を実行",
+                    "[3] この task を標準ライン自動実行",
+                ]
+            )
         elif status == "completed":
-            lines.append("2. この task から次タスク案を作成")
+            lines.extend(
+                [
+                    "[2] この task の後工程メニューへ移動",
+                    "[3] planner → plan_director を自動実行",
+                ]
+            )
         else:
-            lines.append("2. この task では利用できない操作")
+            lines.append("[2] この task では利用できない操作")
 
         lines.extend(
             [
-                "0. 戻る",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -106,6 +116,7 @@ class RemoteOperatorRenderer:
         self,
         *,
         source_task_id: str,
+        planner_role: str,
         proposals: list[dict],
         last_message: str,
     ) -> str:
@@ -117,7 +128,7 @@ class RemoteOperatorRenderer:
                 [
                     "source task がありません。",
                     "",
-                    "0. 戻る",
+                    "[0] 戻る",
                     "",
                     "番号で入力してください",
                 ]
@@ -127,6 +138,7 @@ class RemoteOperatorRenderer:
         lines.extend(
             [
                 title,
+                f"planner_role: {planner_role or '-'}",
                 "",
             ]
         )
@@ -136,7 +148,7 @@ class RemoteOperatorRenderer:
         else:
             for idx, proposal in enumerate(proposals, start=1):
                 lines.append(
-                    f"{idx}. {proposal['proposal_id']} | "
+                    f"[{idx}] {proposal['proposal_id']} | "
                     f"state={proposal['state']} | "
                     f"title={proposal['title']}"
                 )
@@ -144,7 +156,7 @@ class RemoteOperatorRenderer:
         lines.extend(
             [
                 "",
-                "0. 戻る",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -155,6 +167,7 @@ class RemoteOperatorRenderer:
         self,
         *,
         proposal_id: str,
+        planner_role: str,
         proposal: dict | None,
         last_message: str,
     ) -> str:
@@ -164,8 +177,9 @@ class RemoteOperatorRenderer:
             lines.extend(
                 [
                     f"{proposal_id or 'proposal'} が見つかりません。",
+                    f"planner_role: {planner_role or '-'}",
                     "",
-                    "0. 戻る",
+                    "[0] 戻る",
                     "",
                     "番号で入力してください",
                 ]
@@ -176,14 +190,15 @@ class RemoteOperatorRenderer:
         lines.extend(
             [
                 f"選択中 proposal: {proposal_id}",
+                f"planner_role: {planner_role or '-'}",
                 f"title: {proposal['title']}",
                 f"state: {proposal['state']}",
                 f"why_now: {proposal['why_now'] or '-'}",
                 f"depends_on: {depends_on}",
                 f"description: {proposal['description'] or '-'}",
                 "",
-                "1. この proposal から task 作成",
-                "0. 戻る",
+                "[1] この proposal から task 作成",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -201,8 +216,8 @@ class RemoteOperatorRenderer:
             [
                 f"created_task_id: {created_task_id or '-'}",
                 "",
-                "1. そのまま実行",
-                "0. 戻る",
+                "[1] そのまま標準ライン自動実行",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -223,7 +238,7 @@ class RemoteOperatorRenderer:
                 [
                     "選択中 task がありません。",
                     "",
-                    "0. 戻る",
+                    "[0] 戻る",
                     "",
                     "番号で入力してください",
                 ]
@@ -235,10 +250,10 @@ class RemoteOperatorRenderer:
                 [
                     "次の操作を選んでください",
                     "",
-                    "1. 次タスク案を作成する",
-                    "2. task 一覧へ移動",
-                    "3. メインメニューへ戻る",
-                    "0. 戻る",
+                    "[1] 後工程メニューへ移動",
+                    "[2] task 一覧へ移動",
+                    "[3] メインメニューへ戻る",
+                    "[0] 戻る",
                     "",
                     "番号で入力してください",
                 ]
@@ -249,9 +264,197 @@ class RemoteOperatorRenderer:
             [
                 "次の操作を選んでください",
                 "",
-                "1. task 一覧へ移動",
-                "2. メインメニューへ戻る",
-                "0. 戻る",
+                "[1] task 一覧へ移動",
+                "[2] メインメニューへ戻る",
+                "[0] 戻る",
+                "",
+                "番号で入力してください",
+            ]
+        )
+        return "\n".join(lines)
+
+    def render_post_pipeline_menu(
+        self,
+        *,
+        source_task_id: str,
+        source_task_status: str,
+        approval_mode: str,
+        stop_after_current_task_requested: bool,
+        active_planner_role: str,
+        last_planner_role: str,
+        last_plan_director_decision: str,
+        waiting_next_task_approval: bool,
+        development_mode: str,
+        last_message: str,
+    ) -> str:
+        lines = self._start_lines(last_message)
+
+        normalized_source_task_id = str(source_task_id).strip() or "-"
+        normalized_status = str(source_task_status).strip() or "-"
+        normalized_approval_mode = str(approval_mode).strip() or "manual"
+        normalized_active_planner_role = str(active_planner_role).strip() or "planner_safe"
+        normalized_last_planner_role = str(last_planner_role).strip() or "planner_safe"
+        normalized_decision = str(last_plan_director_decision).strip() or "-"
+        normalized_development_mode = str(development_mode).strip() or "maintenance"
+        stop_text = "ON" if bool(stop_after_current_task_requested) else "OFF"
+        waiting_text = "あり" if bool(waiting_next_task_approval) else "なし"
+
+        lines.extend(
+            [
+                "後工程メニュー",
+                "",
+                f"source task: {normalized_source_task_id}",
+                f"status: {normalized_status}",
+                f"development_mode: {normalized_development_mode}",
+                f"active_planner_role: {normalized_active_planner_role}",
+                f"approval_mode: {normalized_approval_mode}",
+                f"stop_reservation: {stop_text}",
+                f"last_planner_role: {normalized_last_planner_role}",
+                f"last_plan_director_decision: {normalized_decision}",
+                f"waiting_next_task_approval: {waiting_text}",
+                "",
+                "[1] planner を実行",
+                "[2] plan_director を実行",
+                "[3] planner → plan_director を自動実行",
+                "[4] 承認待ちを確認",
+                "[5] pipeline 設定",
+                "[6] task 一覧へ移動",
+                "[7] メインメニューへ戻る",
+                "[0] 戻る",
+                "",
+                "番号で入力してください",
+            ]
+        )
+        return "\n".join(lines)
+
+    def render_plan_director_result_menu(
+        self,
+        *,
+        source_task_id: str,
+        decision: str,
+        selected_proposal_id: str,
+        selected_planner_role: str,
+        selection_reason: str,
+        approval_mode: str,
+        waiting_next_task_approval: bool,
+        last_message: str,
+    ) -> str:
+        lines = self._start_lines(last_message)
+
+        normalized_source_task_id = str(source_task_id).strip() or "-"
+        normalized_decision = str(decision).strip() or "-"
+        normalized_selected_proposal_id = str(selected_proposal_id).strip() or "-"
+        normalized_selected_planner_role = str(selected_planner_role).strip() or "-"
+        normalized_selection_reason = str(selection_reason).strip() or "-"
+        normalized_approval_mode = str(approval_mode).strip() or "manual"
+        waiting_text = "あり" if bool(waiting_next_task_approval) else "なし"
+
+        lines.extend(
+            [
+                "plan_director 実行結果",
+                "",
+                f"source task: {normalized_source_task_id}",
+                f"decision: {normalized_decision}",
+                f"selected_proposal_id: {normalized_selected_proposal_id}",
+                f"selected_planner_role: {normalized_selected_planner_role}",
+                f"selection_reason: {normalized_selection_reason}",
+                f"approval_mode: {normalized_approval_mode}",
+                f"waiting_next_task_approval: {waiting_text}",
+                "",
+            ]
+        )
+
+        if normalized_decision == "adopt":
+            lines.extend(
+                [
+                    "[1] 承認待ちへ進む / 確認する",
+                    "[2] 後工程メニューへ戻る",
+                    "[3] task 一覧へ移動",
+                    "[0] 戻る",
+                    "",
+                    "番号で入力してください",
+                ]
+            )
+            return "\n".join(lines)
+
+        lines.extend(
+            [
+                "[1] 後工程メニューへ戻る",
+                "[2] task 一覧へ移動",
+                "[0] 戻る",
+                "",
+                "番号で入力してください",
+            ]
+        )
+        return "\n".join(lines)
+
+    def render_next_task_approval_menu(
+        self,
+        *,
+        source_task_id: str,
+        decision: str,
+        selected_proposal_id: str,
+        selected_planner_role: str,
+        selection_reason: str,
+        last_message: str,
+    ) -> str:
+        lines = self._start_lines(last_message)
+
+        normalized_source_task_id = str(source_task_id).strip() or "-"
+        normalized_decision = str(decision).strip() or "-"
+        normalized_selected_proposal_id = str(selected_proposal_id).strip() or "-"
+        normalized_selected_planner_role = str(selected_planner_role).strip() or "-"
+        normalized_selection_reason = str(selection_reason).strip() or "-"
+
+        lines.extend(
+            [
+                "次 task 承認待ち",
+                "",
+                f"source task: {normalized_source_task_id}",
+                f"decision: {normalized_decision}",
+                f"selected_proposal_id: {normalized_selected_proposal_id}",
+                f"selected_planner_role: {normalized_selected_planner_role}",
+                f"selection_reason: {normalized_selection_reason}",
+                "",
+                "[1] 次 task 作成を承認",
+                "[2] 今回は作成しない",
+                "[3] 後工程メニューへ戻る",
+                "[0] 戻る",
+                "",
+                "番号で入力してください",
+            ]
+        )
+        return "\n".join(lines)
+
+    def render_pipeline_settings_menu(
+        self,
+        *,
+        active_planner_role: str,
+        approval_mode: str,
+        stop_after_current_task_requested: bool,
+        development_mode: str,
+        last_message: str,
+    ) -> str:
+        lines = self._start_lines(last_message)
+        stop_text = "ON" if bool(stop_after_current_task_requested) else "OFF"
+
+        lines.extend(
+            [
+                "pipeline 設定",
+                "",
+                f"active_planner_role: {active_planner_role or '-'}",
+                f"approval_mode: {approval_mode or '-'}",
+                f"stop_reservation: {stop_text}",
+                f"development_mode: {development_mode or '-'}",
+                "",
+                "[1] planner_role を planner_safe にする",
+                "[2] planner_role を planner_improvement にする",
+                "[3] approval_mode を manual にする",
+                "[4] approval_mode を auto にする",
+                "[5] stop_reservation を切り替える",
+                "[6] development_mode を maintenance にする",
+                "[7] development_mode を mainline にする",
+                "[0] 戻る",
                 "",
                 "番号で入力してください",
             ]
@@ -264,19 +467,19 @@ class RemoteOperatorRenderer:
             [
                 "Remote Operator は終了状態です。",
                 "",
-                "0. メインメニューへ戻る",
+                "[0] メインメニューへ戻る",
                 "",
                 "番号で入力してください",
             ]
         )
         return "\n".join(lines)
 
-    @staticmethod
-    def _start_lines(last_message: str, title: str = "") -> list[str]:
-        normalized_message = str(last_message).strip()
-        normalized_title = str(title).strip()
-        if not normalized_message:
-            return []
-        if normalized_title and normalized_message == normalized_title:
-            return []
-        return [normalized_message, ""]
+    def _start_lines(self, last_message: str, title: str = "") -> list[str]:
+        lines: list[str] = []
+        if title:
+            lines.append(title)
+            lines.append("")
+        if last_message:
+            lines.append(last_message)
+            lines.append("")
+        return lines

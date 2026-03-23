@@ -152,7 +152,9 @@ def _build_execution_action_group(window: Any) -> QGroupBox:
 
     button_row = QHBoxLayout()
     window.btn_run_claude_step = QPushButton("Claude実行(自動完了まで)")
+    window.btn_request_stop_after_current_task = QPushButton("完了後停止予約")
     button_row.addWidget(window.btn_run_claude_step)
+    button_row.addWidget(window.btn_request_stop_after_current_task)
     button_row.addStretch()
 
     layout.addLayout(button_row)

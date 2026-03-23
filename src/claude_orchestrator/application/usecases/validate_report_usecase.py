@@ -9,20 +9,33 @@ from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class ValidateReportUseCase:
-    def execute(self, repo_path: str, task_id: str, role: str) -> dict:
+    def execute(
+        self,
+        repo_path: str,
+        task_id: str,
+        role: str,
+        expected_cycle: int,
+        expected_revision: int,
+    ) -> dict:
         target_repo = Path(repo_path).resolve()
         runtime = TaskRuntime(target_repo=target_repo, task_id=task_id)
 
         task_json = runtime.load_task_json()
         state_json = runtime.load_state_json()
-        cycle = int(state_json["cycle"])
+        cycle = int(expected_cycle)
+        revision = int(expected_revision)
+
+        self._check_state_revision(
+            state_json=state_json,
+            expected_revision=revision,
+        )
 
         report_path = runtime.get_output_json_path(role, cycle)
         if not report_path.exists():
             raise FileNotFoundError(f"Report file not found: {report_path}")
 
-        with report_path.open("r", encoding="utf-8") as f:
-            report = json.load(f)
+        with report_path.open("r", encoding="utf-8") as file:
+            report = json.load(file)
 
         validator = SchemaValidator(runtime.schemas_dir)
         validator.validate_report(role=role, data=report)
@@ -39,9 +52,23 @@ class ValidateReportUseCase:
             "task_id": task_id,
             "role": role,
             "cycle": cycle,
+            "revision": revision,
             "report_path": str(report_path),
             "valid": True,
         }
+
+    @staticmethod
+    def _check_state_revision(
+        *,
+        state_json: dict,
+        expected_revision: int,
+    ) -> None:
+        actual_revision = int(state_json.get("revision", 1))
+        if actual_revision != int(expected_revision):
+            raise ValueError(
+                "state revision mismatch: "
+                f"expected_revision={expected_revision}, actual_revision={actual_revision}"
+            )
 
     @staticmethod
     def _check_identity(
@@ -60,144 +87,42 @@ class ValidateReportUseCase:
                 f"role mismatch: expected={expected_role}, actual={report.get('role')}"
             )
 
-        if int(report.get("cycle")) != int(expected_cycle):
+        actual_cycle = int(report.get("cycle"))
+        if actual_cycle != int(expected_cycle):
             raise ValueError(
-                f"cycle mismatch: expected={expected_cycle}, actual={report.get('cycle')}"
+                f"cycle mismatch: expected={expected_cycle}, actual={actual_cycle}"
             )
 
-    def _check_quality_gate(self, role: str, report: dict) -> None:
-        if role == "task_router":
-            self._check_task_router_quality(report)
-            return
-
+    @staticmethod
+    def _check_quality_gate(*, role: str, report: dict) -> None:
         if role == "implementer":
-            self._check_implementer_quality(report)
-            return
+            status = str(report.get("status", "")).strip()
+            if status not in {"done", "blocked"}:
+                raise ValueError(
+                    "implementer status must be 'done' or 'blocked': "
+                    f"actual={status}"
+                )
 
         if role == "reviewer":
-            self._check_reviewer_quality(report)
-            return
+            decision = str(report.get("decision", "")).strip()
+            if decision not in {"ok", "needs_fix"}:
+                raise ValueError(
+                    "reviewer decision must be 'ok' or 'needs_fix': "
+                    f"actual={decision}"
+                )
 
         if role == "director":
-            self._check_director_quality(report)
-            return
-
-        raise ValueError(f"Unsupported role for quality gate: {role}")
-
-    def _check_task_router_quality(self, report: dict) -> None:
-        used_skills = self._as_string_list(report.get("used_skills"))
-        reasons = self._as_string_list(report.get("skill_selection_reason"))
-        notes = self._as_string_list(report.get("initial_execution_notes"))
-        role_skill_plan = report.get("role_skill_plan", {}) or {}
-        status = str(report.get("status", ""))
-
-        if not used_skills:
-            raise ValueError("quality gate failed for task_router: used_skills is empty")
-
-        if "route-task" not in used_skills:
-            raise ValueError(
-                "quality gate failed for task_router: used_skills must include route-task"
-            )
-
-        if not reasons:
-            raise ValueError(
-                "quality gate failed for task_router: skill_selection_reason is empty"
-            )
-
-        if not notes:
-            raise ValueError(
-                "quality gate failed for task_router: initial_execution_notes is empty"
-            )
-
-        for required_role in ("implementer", "reviewer", "director"):
-            if required_role not in role_skill_plan:
+            final_action = str(report.get("final_action", "")).strip()
+            if final_action not in {"approve", "revise", "stop"}:
                 raise ValueError(
-                    "quality gate failed for task_router: "
-                    f"role_skill_plan.{required_role} is missing"
+                    "director final_action must be 'approve', 'revise', or 'stop': "
+                    f"actual={final_action}"
                 )
 
-        if status == "ready":
-            if not isinstance(role_skill_plan, dict):
-                raise ValueError(
-                    "quality gate failed for task_router: role_skill_plan must be an object"
-                )
-
-    def _check_implementer_quality(self, report: dict) -> None:
-        status = str(report.get("status", ""))
-        summary = self._as_text(report.get("summary"))
-        changed_files = self._as_string_list(report.get("changed_files"))
-        commands_run = self._as_string_list(report.get("commands_run"))
-        results = report.get("results", [])
-        risks = self._as_string_list(report.get("risks"))
-        questions = self._as_string_list(report.get("questions"))
-
-        if not summary:
-            raise ValueError("quality gate failed for implementer: summary is empty")
-
-        if status == "done":
-            has_execution_evidence = bool(changed_files or commands_run or results)
-            if not has_execution_evidence:
-                raise ValueError(
-                    "quality gate failed for implementer: "
-                    "done report must include at least one of changed_files, commands_run, results"
-                )
-
-        if status in ("blocked", "need_input"):
-            if not (risks or questions):
-                raise ValueError(
-                    "quality gate failed for implementer: "
-                    "blocked/need_input report must include risks or questions"
-                )
-
-    def _check_reviewer_quality(self, report: dict) -> None:
-        decision = str(report.get("decision", ""))
-        summary = self._as_text(report.get("summary"))
-        must_fix = self._as_string_list(report.get("must_fix"))
-        nice_to_have = self._as_string_list(report.get("nice_to_have"))
-        risks = self._as_string_list(report.get("risks"))
-
-        if not summary:
-            raise ValueError("quality gate failed for reviewer: summary is empty")
-
-        if decision in ("ok", "needs_fix"):
-            has_review_basis = bool(must_fix or nice_to_have or risks)
-            if not has_review_basis:
-                raise ValueError(
-                    "quality gate failed for reviewer: "
-                    "ok/needs_fix report must include at least one of must_fix, nice_to_have, risks"
-                )
-
-        if decision == "blocked" and not risks:
-            raise ValueError(
-                "quality gate failed for reviewer: blocked report must include risks"
-            )
-
-    def _check_director_quality(self, report: dict) -> None:
-        final_action = str(report.get("final_action", ""))
-        summary = self._as_text(report.get("summary"))
-        next_actions = self._as_string_list(report.get("next_actions"))
-
-        if not summary:
-            raise ValueError("quality gate failed for director: summary is empty")
-
-        if final_action == "revise" and not next_actions:
-            raise ValueError(
-                "quality gate failed for director: revise report must include next_actions"
-            )
-
-    @staticmethod
-    def _as_text(value: object) -> str:
-        if value is None:
-            return ""
-        return str(value).strip()
-
-    @staticmethod
-    def _as_string_list(value: object) -> list[str]:
-        if not isinstance(value, list):
-            return []
-        result: list[str] = []
-        for item in value:
-            text = str(item).strip()
-            if text:
-                result.append(text)
-        return result
+        if role == "task_router":
+            task_type = str(report.get("task_type", "")).strip()
+            risk_level = str(report.get("risk_level", "")).strip()
+            if not task_type:
+                raise ValueError("task_router task_type must not be empty")
+            if not risk_level:
+                raise ValueError("task_router risk_level must not be empty")

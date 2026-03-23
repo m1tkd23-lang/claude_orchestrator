@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import re
 
 from claude_orchestrator.application.usecases.create_task_usecase import (
     CreateTaskUseCase,
@@ -11,6 +12,9 @@ from claude_orchestrator.infrastructure.planner_runtime import PlannerRuntime
 
 
 class CreateTaskFromProposalUseCase:
+    CARRY_OVER_PREFIX_PATTERN = re.compile(r"^\[carry_over from TASK-\d+\]")
+    MAX_CARRY_OVER_ITEMS = 5
+
     def execute(
         self,
         *,
@@ -37,7 +41,12 @@ class CreateTaskFromProposalUseCase:
 
         planner_report = self._load_json(report_path)
         proposal = self._find_proposal(planner_report, proposal_id)
-        fields = self._proposal_to_task_fields(proposal)
+        fields = self._proposal_to_task_fields(
+            proposal=proposal,
+            source_task_id=source_task_id,
+            source_cycle=cycle,
+            target_repo=target_repo,
+        )
 
         created_task_dir = CreateTaskUseCase().execute(
             repo_path=repo_path,
@@ -45,6 +54,7 @@ class CreateTaskFromProposalUseCase:
             description=fields["description"],
             context_files=fields["context_files"],
             constraints=fields["constraints"],
+            initial_execution_notes=fields["initial_execution_notes"],
         )
         created_task_id = Path(created_task_dir).name
 
@@ -54,7 +64,7 @@ class CreateTaskFromProposalUseCase:
             source_task_id=source_task_id,
             cycle=cycle,
             proposal_id=proposal_id,
-            state="accepted",
+            state="task_created",
         )
 
         return {
@@ -65,6 +75,7 @@ class CreateTaskFromProposalUseCase:
             "created_task_dir": str(created_task_dir),
             "planner_report_path": str(report_path),
             "proposal_state_path": str(state_path),
+            "carry_over_items_count": len(fields["initial_execution_notes"]),
         }
 
     @staticmethod
@@ -80,8 +91,15 @@ class CreateTaskFromProposalUseCase:
                 return proposal
         raise ValueError(f"Proposal not found: {proposal_id}")
 
-    @staticmethod
-    def _proposal_to_task_fields(proposal: dict) -> dict:
+    @classmethod
+    def _proposal_to_task_fields(
+        cls,
+        *,
+        proposal: dict,
+        source_task_id: str,
+        source_cycle: int,
+        target_repo: Path,
+    ) -> dict:
         title = str(proposal.get("title", "")).strip()
         description = str(proposal.get("description", "")).strip()
         why_now = str(proposal.get("why_now", "")).strip()
@@ -120,12 +138,99 @@ class CreateTaskFromProposalUseCase:
         for item in depends_on:
             merged_constraints.append(f"depends_on: {item}")
 
+        merged_context_files, carry_over_notes = cls._build_carry_over_fields(
+            proposal_context_files=context_files,
+            source_task_id=source_task_id,
+            source_cycle=source_cycle,
+            target_repo=target_repo,
+        )
+
         return {
             "title": title,
             "description": "\n".join(description_lines).strip(),
-            "context_files": context_files,
+            "context_files": merged_context_files,
             "constraints": merged_constraints,
+            "initial_execution_notes": carry_over_notes,
         }
+
+    @classmethod
+    def _build_carry_over_fields(
+        cls,
+        *,
+        proposal_context_files: list[str],
+        source_task_id: str,
+        source_cycle: int,
+        target_repo: Path,
+    ) -> tuple[list[str], list[str]]:
+        merged_context_files: list[str] = []
+        seen_context_files: set[str] = set()
+
+        def add_context_if_missing(path_text: str) -> None:
+            normalized = str(path_text).strip()
+            if not normalized or normalized in seen_context_files:
+                return
+            seen_context_files.add(normalized)
+            merged_context_files.append(normalized)
+
+        for item in proposal_context_files:
+            add_context_if_missing(item)
+
+        director_report_rel = (
+            f".claude_orchestrator/tasks/{source_task_id}/inbox/"
+            f"director_report_v{source_cycle}.json"
+        )
+        director_report_abs = target_repo / director_report_rel
+
+        carry_over_notes: list[str] = []
+
+        # carry_over-v2:
+        # - director_report が存在する場合のみ carry_over 処理を行う
+        # - 再carry_overは禁止
+        # - 完全一致重複は除去
+        # - 最大件数は MAX_CARRY_OVER_ITEMS
+        if director_report_abs.exists():
+            add_context_if_missing(director_report_rel)
+
+            director_report = cls._load_json(director_report_abs)
+            remaining_risks = director_report.get("remaining_risks", []) or []
+
+            filtered_items = cls._filter_remaining_risks_for_carry_over(
+                remaining_risks=remaining_risks
+            )
+
+            carry_over_notes = [
+                f"[carry_over from {source_task_id}] {item}" for item in filtered_items
+            ]
+
+        return merged_context_files, carry_over_notes
+
+    @classmethod
+    def _filter_remaining_risks_for_carry_over(
+        cls,
+        *,
+        remaining_risks: list[object],
+    ) -> list[str]:
+        unique_items: list[str] = []
+        seen: set[str] = set()
+
+        for item in remaining_risks:
+            text = str(item).strip()
+            if not text:
+                continue
+
+            # v2: すでに carry_over 済みの項目は再転記しない
+            if cls.CARRY_OVER_PREFIX_PATTERN.match(text):
+                continue
+
+            # v2: 完全一致重複を除去
+            if text in seen:
+                continue
+
+            seen.add(text)
+            unique_items.append(text)
+
+        # v2: 最大件数に制限
+        return unique_items[: cls.MAX_CARRY_OVER_ITEMS]
 
     @staticmethod
     def _set_proposal_state(
@@ -136,7 +241,13 @@ class CreateTaskFromProposalUseCase:
         proposal_id: str,
         state: str,
     ) -> None:
-        if state not in {"proposed", "accepted", "rejected", "deferred"}:
+        if state not in {
+            "proposed",
+            "accepted",
+            "rejected",
+            "deferred",
+            "task_created",
+        }:
             raise ValueError(f"Unsupported proposal state: {state}")
 
         if state_path.exists():
@@ -169,3 +280,4 @@ class CreateTaskFromProposalUseCase:
         state_path.parent.mkdir(parents=True, exist_ok=True)
         with state_path.open("w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")

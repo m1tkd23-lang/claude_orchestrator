@@ -1,0 +1,667 @@
+pipeline タブ 実装開始用ファイル設計書
+1. 今回の実装スコープ
+
+今回は 初版 v1 として、次だけを実装対象にします。
+
+pipeline タブを新規追加
+
+task サマリ表示
+
+role strip 表示
+
+role report 要約表示
+
+既存処理の各更新タイミングで pipeline 表示を再描画
+
+今回はまだやらないもの:
+
+pipeline タブ上の承認ボタン
+
+role カードクリックでのジャンプ
+
+report JSON 全文表示
+
+詳細タブからの大規模移設
+
+2. 新規作成ファイル
+2-1. src\claude_orchestrator\gui\tabs\pipeline_tab.py
+目的
+
+pipeline タブの UI を組み立てる。
+
+このファイルで持つ責務
+
+タブ本体作成
+
+task サマリ group 作成
+
+role strip group 作成
+
+role report summary group 作成
+
+必要 widget を window 属性へぶら下げる
+
+このファイルで持たない責務
+
+状態判定
+
+report 読み込み
+
+summary 作成
+
+enable/disable 制御
+
+window に追加する属性案
+task summary
+
+pipeline_task_id_edit
+
+pipeline_title_edit
+
+pipeline_status_edit
+
+pipeline_current_stage_edit
+
+pipeline_next_role_edit
+
+pipeline_cycle_edit
+
+pipeline_last_completed_role_edit
+
+pipeline_planner_role_edit
+
+pipeline_post_flow_status_edit
+
+pipeline_stop_reservation_edit
+
+role strip
+
+role ごとに 2 項目ずつにすると扱いやすいです。
+
+pipeline_role_task_router_state_edit
+
+pipeline_role_task_router_note_edit
+
+pipeline_role_implementer_state_edit
+
+pipeline_role_implementer_note_edit
+
+pipeline_role_reviewer_state_edit
+
+pipeline_role_reviewer_note_edit
+
+pipeline_role_director_state_edit
+
+pipeline_role_director_note_edit
+
+pipeline_role_planner_state_edit
+
+pipeline_role_planner_note_edit
+
+pipeline_role_plan_director_state_edit
+
+pipeline_role_plan_director_note_edit
+
+report summary
+
+pipeline_task_router_summary_edit
+
+pipeline_implementer_summary_edit
+
+pipeline_reviewer_summary_edit
+
+pipeline_director_summary_edit
+
+pipeline_planner_summary_edit
+
+pipeline_plan_director_summary_edit
+
+レイアウト案
+
+QVBoxLayout
+
+上段 QGroupBox("pipeline task サマリ")
+
+中段 QGroupBox("pipeline role 状態")
+
+下段 QGroupBox("role report 要約")
+
+下段は QGridLayout で 2列 × 3行 が扱いやすいです。
+
+2-2. src\claude_orchestrator\gui\helpers\pipeline_summary_helpers.py
+目的
+
+pipeline タブ表示用データを作る。
+
+このファイルで持つ責務
+
+現在 task サマリ生成
+
+後工程状態文言生成
+
+role strip 用状態生成
+
+standard role report 要約生成
+
+planner 要約生成
+
+plan_director 要約生成
+
+このファイルで持たない責務
+
+widget 更新
+
+signal 接続
+
+Qt 依存の UI 制御
+
+関数案
+build_pipeline_task_summary(window: Any) -> dict[str, str]
+
+返す項目:
+
+task_id
+
+title
+
+status
+
+current_stage
+
+next_role
+
+cycle
+
+last_completed_role
+
+planner_role
+
+post_flow_status
+
+stop_reservation
+
+build_pipeline_role_states(window: Any) -> list[dict[str, str]]
+
+返す要素例:
+
+{
+    "role": "task_router",
+    "state": "done",
+    "note": "cycle 1",
+}
+build_pipeline_report_summaries(window: Any) -> dict[str, str]
+
+返すキー:
+
+task_router
+
+implementer
+
+reviewer
+
+director
+
+planner
+
+plan_director
+
+detect_post_flow_status(window: Any) -> str
+
+戻り値例:
+
+planner 実行中
+
+plan_director 実行中
+
+次task承認待ち
+
+planner 待機中
+
+後工程なし
+
+load_standard_role_reports(repo_path: str, task_id: str) -> list[dict]
+
+inbox 内 JSON を読んで role/cycle 順に並べる
+
+summarize_latest_standard_report(report: dict | None) -> str
+
+標準 role の要約文生成
+
+summarize_planner_report(planner_report: dict | None, state_store: object | None) -> str
+
+表示例:
+
+summary
+
+proposals 件数
+
+accepted/rejected/deferred/task_created 件数
+
+summarize_plan_director_report(plan_director_report: dict | None) -> str
+
+表示例:
+
+decision
+
+selected_proposal_id
+
+selection_reason
+
+3. 更新ファイル
+3-1. src\claude_orchestrator\gui\ui_sections.py
+変更内容
+
+build_pipeline_tab を import
+
+main_tabs へ pipeline タブ追加
+
+タブ順案
+
+次が自然です。
+
+実行
+
+pipeline
+
+Remote Claude
+
+詳細
+
+理由:
+
+実行の次に全体把握画面が来る
+
+詳細はその後で深掘りに回せる
+
+3-2. src\claude_orchestrator\gui\main_window.py
+変更内容
+
+__init__ の最後で pipeline 初期化を呼ぶ。
+
+追加候補:
+
+self._clear_pipeline_tab()
+
+self._refresh_pipeline_tab()
+
+初期状態ではまず clear だけでもよいです。
+
+3-3. src\claude_orchestrator\gui\main_window_view_state.py
+追加責務
+
+pipeline タブの UI 反映入口を持つ。
+
+追加メソッド案
+_clear_pipeline_tab(self) -> None
+
+全 pipeline widget を初期状態へ戻す
+
+_refresh_pipeline_tab(self) -> None
+
+helper から表示データを受け取り、widget に反映する
+
+_refresh_pipeline_tab() の中でやること
+
+build_pipeline_task_summary(self) を呼ぶ
+
+build_pipeline_role_states(self) を呼ぶ
+
+build_pipeline_report_summaries(self) を呼ぶ
+
+各 widget に setText / setPlainText する
+
+ここでやらないこと
+
+report JSON を直接読む複雑処理
+
+状態判定ロジックの本体
+
+それは helper へ寄せる
+
+3-4. src\claude_orchestrator\gui\main_window_actions.py
+追加する refresh 呼び出し位置
+
+on_browse_repo
+
+on_repo_path_edited
+
+on_check_initialized
+
+on_init_project
+
+on_create_task
+
+on_refresh_tasks
+
+on_task_selected
+
+on_show_next
+
+on_validate_report
+
+on_advance_task
+
+on_reload_selected_task
+
+_load_task_inbox_logs
+
+方針
+
+各処理の最後で self._refresh_pipeline_tab()
+repo 変更で空にしたい場面では self._clear_pipeline_tab()
+
+3-5. src\claude_orchestrator\gui\main_window_auto_run.py
+追加する refresh 呼び出し位置
+
+on_run_claude_step
+
+_on_worker_status_changed
+
+_on_worker_show_next_ready
+
+_on_worker_task_detail_requested
+
+_on_worker_task_list_refresh_requested
+
+_on_worker_error
+
+_on_worker_completed
+
+_on_auto_run_thread_finished
+
+on_request_stop_after_current_task
+
+方針
+
+execution state を変えた直後に pipeline も更新する
+
+3-6. src\claude_orchestrator\gui\main_window_planner.py
+追加する refresh 呼び出し位置
+
+on_planner_role_changed
+
+on_planner_proposal_selected
+
+on_accept_proposal
+
+on_create_task_from_proposal
+
+on_reject_proposal
+
+on_defer_proposal
+
+on_approve_next_task_from_plan_director
+
+on_skip_next_task_from_plan_director
+
+_start_planner_generation
+
+_start_plan_director_run
+
+_reset_planner_view
+
+_load_existing_planner_data
+
+_refresh_planner_list_from_current_report
+
+_refresh_plan_director_view
+
+_on_planner_result_ready
+
+_on_planner_error
+
+_on_planner_thread_finished
+
+_on_plan_director_result_ready
+
+_on_plan_director_error
+
+_on_plan_director_thread_finished
+
+方針
+
+planner / plan_director / 承認待ち は pipeline タブの核なので、ここは細かく refresh を入れてよいです。
+
+4. role strip 状態判定仕様
+
+初版では次の状態名に固定します。
+
+idle
+
+done
+
+running
+
+waiting
+
+approval
+
+stopped
+
+failed
+
+判定ルール案
+task_router / implementer / reviewer / director
+
+優先順:
+
+execution_status_edit == "failed" かつ execution_role_edit が一致
+→ failed
+
+execution_role_edit が一致 かつ pipeline busy 中
+→ running
+
+detail_next_role が一致
+→ waiting
+
+inbox report にその role が存在
+→ done
+
+それ以外
+→ idle
+
+planner
+
+優先順:
+
+_planner_active
+→ running
+
+_pending_auto_planner_after_completion
+→ waiting
+
+_planner_report がある
+→ done
+
+stop予約で後工程スキップ状態
+→ stopped
+
+それ以外
+→ idle
+
+plan_director
+
+優先順:
+
+_plan_director_active
+→ running
+
+_waiting_next_task_approval
+→ approval
+
+execution_status_edit == "failed" かつ execution_role_edit == "plan_director"
+→ failed
+
+_plan_director_report がある
+→ done
+
+それ以外
+→ idle
+
+5. role strip note 仕様
+
+各 role の note は短く固定します。
+
+task_router / implementer / reviewer / director
+
+cycle {n}
+
+or next
+
+or -
+
+planner
+
+planner_safe
+
+planner_improvement
+
+queued
+
+done
+
+plan_director
+
+adopt
+
+no_adopt
+
+approval
+
+-
+
+6. report summary 表示仕様
+6-1. standard roles
+
+対象:
+
+task_router
+
+implementer
+
+reviewer
+
+director
+
+表示ルール
+
+最新 cycle の最新 report を採用
+
+表示は summary 優先
+
+summary が無ければ status / decision / final_action を補足表示
+
+例
+status: done
+
+docs/workflow_rules.md を新規作成した。...
+6-2. planner
+表示項目
+
+planner_role
+
+summary
+
+proposal count
+
+accepted
+
+rejected
+
+deferred
+
+task_created
+
+例
+planner_role: planner_safe
+proposals: 3
+accepted: 1 / rejected: 0 / deferred: 1 / task_created: 1
+
+次タスク候補を3件提案...
+6-3. plan_director
+表示項目
+
+decision
+
+selected_proposal_id
+
+selection_reason
+
+例
+decision: adopt
+selected_proposal_id: P-002
+
+依存関係と安全性の観点からこの proposal を優先...
+7. pipeline タブの widget 命名ルール
+
+方針を揃えるため、全部 pipeline_ 接頭辞に統一します。
+
+QLineEdit
+
+*_edit
+
+QPlainTextEdit
+
+*_edit
+
+将来ラベルを追加する場合
+
+*_label
+
+今回は edit 系だけで十分です。
+
+8. 既存構造を壊さないための注意点
+1
+
+pipeline タブは 参照専用 にする
+
+2
+
+既存詳細タブの planner / plan_director 表示は削らない
+
+3
+
+refresh 呼び出しは追加するが、既存処理順は極力変えない
+
+4
+
+helper 側で例外が出ても、GUI 全体を巻き込まないようにする
+必要なら _refresh_pipeline_tab() 内で安全に握る
+
+5
+
+repo 未選択や task 未選択時は、空表示へ戻す
+
+9. 実装順の最終確定
+第1段
+
+pipeline_tab.py 新規
+
+ui_sections.py 更新
+
+第2段
+
+pipeline_summary_helpers.py 新規
+
+main_window_view_state.py 更新
+
+第3段
+
+main_window_actions.py
+
+main_window_auto_run.py
+
+main_window_planner.py
+へ refresh 呼び出し追加
+
+第4段
+
+表示の微調整
+
+空状態 / failed / approval の確認
+
+10. この次にやること
+
+次はそのまま
+実装ファイル全文の作成・更新案
+に入れます。
