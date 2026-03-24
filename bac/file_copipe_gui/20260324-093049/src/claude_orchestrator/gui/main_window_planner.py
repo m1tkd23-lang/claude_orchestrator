@@ -671,7 +671,6 @@ class MainWindowPlannerMixin:
         selected_proposal_id = report.get("selected_proposal_id")
         selection_reason = str(report.get("selection_reason", "")).strip()
         scores = report.get("scores", []) or []
-        source_task_id = self._resolve_plan_director_source_task_id(report)
 
         self.plan_director_decision_edit.setText(decision)
         self.plan_director_selected_proposal_edit.setText(
@@ -708,33 +707,33 @@ class MainWindowPlannerMixin:
                 "",
             )
 
-        approval_status = self._get_next_task_approval_status(source_task_id)
-
-        if decision == "adopt":
-            if selected_state == "task_created" or approval_status == "approved":
-                self._waiting_next_task_approval = False
-                self._set_execution_state("completed")
-                self._set_execution_step("next task already created")
-                self._set_execution_role("plan_director")
-                self._set_execution_cycle(self._get_current_cycle_text())
-            elif approval_status == "rejected":
-                self._waiting_next_task_approval = False
-                self._set_execution_state("stopped")
-                self._set_execution_step("next task skipped")
-                self._set_execution_role("plan_director")
-                self._set_execution_cycle(self._get_current_cycle_text())
-            else:
-                self._waiting_next_task_approval = True
-                self._set_execution_state("waiting_approval")
-                self._set_execution_step("next task approval")
-                self._set_execution_role("plan_director")
-                self._set_execution_cycle(self._get_current_cycle_text())
+        if decision == "adopt" and selected_state != "task_created":
+            self._waiting_next_task_approval = True
+            self._set_execution_state("waiting_approval")
+            self._set_execution_step("next task approval")
+            self._set_execution_role("plan_director")
+            self._set_execution_cycle(self._get_current_cycle_text())
+            self._append_monitor_message(
+                "plan_director が adopt を返しました。次task作成の承認待ちです"
+            )
+        elif decision == "adopt" and selected_state == "task_created":
+            self._waiting_next_task_approval = False
+            self._set_execution_state("completed")
+            self._set_execution_step("next task already created")
+            self._set_execution_role("plan_director")
+            self._set_execution_cycle(self._get_current_cycle_text())
+            self._append_monitor_message(
+                "plan_director の採択proposalは既に task_created 済みです"
+            )
         elif decision == "no_adopt":
             self._waiting_next_task_approval = False
             self._set_execution_state("completed")
             self._set_execution_step("post-planning done")
             self._set_execution_role("plan_director")
             self._set_execution_cycle(self._get_current_cycle_text())
+            self._append_monitor_message(
+                "plan_director が no_adopt を返しました。今回は次taskを作成しません"
+            )
         else:
             self._waiting_next_task_approval = False
 
@@ -1027,27 +1026,6 @@ class MainWindowPlannerMixin:
                 if text:
                     return text
         return ""
-
-    def _resolve_plan_director_source_task_id(self, report: dict) -> str:
-        source_task_id = str(report.get("source_task_id", "")).strip()
-        if source_task_id:
-            return source_task_id
-        return str(get_display_target_task_id(self)).strip()
-
-    def _get_next_task_approval_status(self, source_task_id: str) -> str:
-        repo_path = normalize_repo_path(self.repo_path_edit.text())
-        if not repo_path or not source_task_id:
-            return ""
-
-        try:
-            payload = NextTaskApprovalStore(
-                repo_path=repo_path,
-                source_task_id=source_task_id,
-            ).load()
-        except Exception:
-            return ""
-
-        return str(payload.get("status", "")).strip()
 
     def _sync_development_mode_from_repo(
         self,

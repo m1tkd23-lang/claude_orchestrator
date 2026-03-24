@@ -74,7 +74,6 @@ class MainWindow(
             r"README.md",
             r".claude_orchestrator\docs\task_history\過去TASK作業記録.md",
             r".claude_orchestrator\docs\task_maps\TASKフロー全体図.md",
-            r".claude_orchestrator\docs\task_maps\role別最小参照マップ.md",
         ]
 
         build_main_window_ui(self)

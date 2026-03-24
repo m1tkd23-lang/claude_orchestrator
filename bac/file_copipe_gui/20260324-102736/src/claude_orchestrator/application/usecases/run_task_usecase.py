@@ -375,30 +375,17 @@ class RunTaskUseCase:
             prompt_text=prompt_text,
         )
 
-        if claude_result.timed_out:
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": (
-                        "[WARN] claude timed out: "
-                        f"timeout_seconds={claude_result.timeout_seconds}, "
-                        f"command={' '.join(claude_result.command)}"
-                    ),
-                },
-            )
-        else:
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": (
-                        "[INFO] claude finished: "
-                        f"returncode={claude_result.returncode}, "
-                        f"command={' '.join(claude_result.command)}"
-                    ),
-                },
-            )
+        self._emit(
+            event_callback,
+            {
+                "type": "log_message",
+                "message": (
+                    "[INFO] claude finished: "
+                    f"returncode={claude_result.returncode}, "
+                    f"command={' '.join(claude_result.command)}"
+                ),
+            },
+        )
 
         stdout_text = claude_result.stdout.strip()
         stderr_text = claude_result.stderr.strip()
@@ -415,40 +402,13 @@ class RunTaskUseCase:
             self._emit(event_callback, {"type": "log_message", "message": "[INFO] claude stderr:"})
             self._emit(event_callback, {"type": "log_message", "message": stderr_text})
 
-        report_exists = Path(output_json_path).exists()
-
-        if claude_result.timed_out:
-            if report_exists:
-                self._emit(
-                    event_callback,
-                    {
-                        "type": "monitor_message",
-                        "message": "timeout detected, but report file exists. continue.",
-                    },
-                )
-                self._emit(
-                    event_callback,
-                    {
-                        "type": "log_message",
-                        "message": (
-                            "[WARN] claude timed out after report was saved. "
-                            "validate/advance will continue."
-                        ),
-                    },
-                )
-            else:
-                raise RuntimeError(
-                    "claude command timed out before report file was saved. "
-                    f"timeout_seconds={claude_result.timeout_seconds}"
-                )
-
-        if claude_result.returncode != 0 and not report_exists:
+        if claude_result.returncode != 0:
             raise RuntimeError(
                 "claude command failed. "
                 f"returncode={claude_result.returncode}"
             )
 
-        if not report_exists:
+        if not Path(output_json_path).exists():
             raise FileNotFoundError(f"Report file not found: {output_json_path}")
 
         self._emit(
