@@ -373,7 +373,6 @@ class RunTaskUseCase:
         claude_result = run_claude_print_mode(
             repo_path=repo_path,
             prompt_text=prompt_text,
-            output_json_path=output_json_path,
         )
 
         if claude_result.timed_out:
@@ -442,18 +441,6 @@ class RunTaskUseCase:
                     "claude command timed out before report file was saved. "
                     f"timeout_seconds={claude_result.timeout_seconds}"
                 )
-
-        if claude_result.returncode != 0 and report_exists:
-            self._emit(
-                event_callback,
-                {
-                    "type": "log_message",
-                    "message": (
-                        "[WARN] claude process ended with non-zero returncode "
-                        "after report was saved. validate/advance will continue."
-                    ),
-                },
-            )
 
         if claude_result.returncode != 0 and not report_exists:
             raise RuntimeError(

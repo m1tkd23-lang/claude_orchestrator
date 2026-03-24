@@ -17,6 +17,8 @@ class GenerateNextTaskProposalsUseCase:
         ".claude_orchestrator/docs/task_maps/role別最小参照マップ.md",
         ".claude_orchestrator/docs/task_maps/TASKフロー全体図.md",
         ".claude_orchestrator/docs/task_history/過去TASK作業記録.md",
+        ".claude_orchestrator/docs/completion_definition.md",
+        ".claude_orchestrator/docs/feature_inventory.md",
     ]
 
     def execute(

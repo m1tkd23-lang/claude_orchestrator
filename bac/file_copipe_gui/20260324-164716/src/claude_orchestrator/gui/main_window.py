@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QThread, QTimer
-from PySide6.QtWidgets import QMainWindow, QMessageBox
+from PySide6.QtWidgets import QMainWindow
 
 from claude_orchestrator.gui.main_window_actions import MainWindowActionsMixin
 from claude_orchestrator.gui.main_window_auto_run import MainWindowAutoRunMixin
@@ -90,50 +90,21 @@ class MainWindow(
         self._start_remote_sync_timer()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
-        if self._has_running_workers():
-            QMessageBox.warning(
-                self,
-                "実行中のため終了不可",
-                (
-                    "現在、auto run / planner / plan_director のいずれかが実行中です。\n"
-                    "停止または完了を待ってから閉じてください。"
-                ),
-            )
-            event.ignore()
-            return
-
         self._stop_remote_sync_timer()
-        self._cleanup_finished_threads()
-        super().closeEvent(event)
 
-    def _has_running_workers(self) -> bool:
-        return any(
-            (
-                self._thread_is_running(self._auto_run_thread),
-                self._thread_is_running(self._planner_thread),
-                self._thread_is_running(self._plan_director_thread),
-                bool(self._auto_run_active),
-                bool(self._planner_active),
-                bool(self._plan_director_active),
-            )
-        )
+        if self._auto_run_thread is not None and self._auto_run_thread.isRunning():
+            self._auto_run_thread.quit()
+            self._auto_run_thread.wait(1000)
 
-    @staticmethod
-    def _thread_is_running(thread: QThread | None) -> bool:
-        return thread is not None and thread.isRunning()
-
-    def _cleanup_finished_threads(self) -> None:
-        if self._auto_run_thread is not None and not self._auto_run_thread.isRunning():
-            self._auto_run_thread = None
-            self._auto_run_worker = None
-
-        if self._planner_thread is not None and not self._planner_thread.isRunning():
-            self._planner_thread = None
-            self._planner_worker = None
+        if self._planner_thread is not None and self._planner_thread.isRunning():
+            self._planner_thread.quit()
+            self._planner_thread.wait(1000)
 
         if (
             self._plan_director_thread is not None
-            and not self._plan_director_thread.isRunning()
+            and self._plan_director_thread.isRunning()
         ):
-            self._plan_director_thread = None
-            self._plan_director_worker = None
+            self._plan_director_thread.quit()
+            self._plan_director_thread.wait(1000)
+
+        super().closeEvent(event)

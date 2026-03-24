@@ -3,12 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import os
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 
 
@@ -22,8 +20,6 @@ class ClaudeRunResult:
     stdout: str
     stderr: str
     command: list[str]
-    timed_out: bool
-    timeout_seconds: int
 
 
 @dataclass
@@ -52,13 +48,8 @@ def run_claude_print_mode(
     repo_path: str,
     prompt_text: str,
     timeout_seconds: int = 300,
-    output_json_path: str | None = None,
-    poll_interval_seconds: float = 0.5,
-    report_detect_grace_seconds: float = 2.0,
 ) -> ClaudeRunResult:
     claude_path = _resolve_claude_path()
-    repo_root = Path(repo_path).resolve()
-    report_path = Path(output_json_path).resolve() if output_json_path else None
 
     command = [
         str(claude_path),
@@ -67,114 +58,24 @@ def run_claude_print_mode(
         "bypassPermissions",
     ]
 
-    stdout_temp_path = ""
-    stderr_temp_path = ""
+    completed = subprocess.run(
+        command,
+        input=prompt_text,
+        text=True,
+        capture_output=True,
+        cwd=str(Path(repo_path).resolve()),
+        timeout=timeout_seconds,
+        encoding="utf-8",
+        errors="replace",
+        shell=False,
+    )
 
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".claude_stdout.log") as stdout_tmp:
-            stdout_temp_path = stdout_tmp.name
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".claude_stderr.log") as stderr_tmp:
-            stderr_temp_path = stderr_tmp.name
-
-        with open(stdout_temp_path, "wb") as stdout_file, open(
-            stderr_temp_path,
-            "wb",
-        ) as stderr_file:
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                cwd=str(repo_root),
-                shell=False,
-            )
-
-            assert process.stdin is not None
-            process.stdin.write(prompt_text.encode("utf-8", errors="replace"))
-            process.stdin.close()
-
-            started_at = time.time()
-            report_detected_at: float | None = None
-            timed_out = False
-
-            while True:
-                returncode = process.poll()
-                report_exists = bool(report_path and report_path.exists())
-
-                if report_exists and report_detected_at is None:
-                    report_detected_at = time.time()
-
-                if returncode is not None:
-                    break
-
-                elapsed = time.time() - started_at
-                if elapsed >= timeout_seconds:
-                    timed_out = True
-                    if report_exists:
-                        _terminate_process(process)
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            _kill_process(process)
-                            process.wait(timeout=5)
-                    else:
-                        _terminate_process(process)
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            _kill_process(process)
-                            process.wait(timeout=5)
-                    break
-
-                if report_detected_at is not None:
-                    grace_elapsed = time.time() - report_detected_at
-                    if grace_elapsed >= report_detect_grace_seconds:
-                        _terminate_process(process)
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            _kill_process(process)
-                            process.wait(timeout=5)
-                        break
-
-                time.sleep(max(0.1, poll_interval_seconds))
-
-            final_returncode = process.poll()
-            if final_returncode is None:
-                try:
-                    final_returncode = process.wait(timeout=1)
-                except subprocess.TimeoutExpired:
-                    _kill_process(process)
-                    final_returncode = process.wait(timeout=5)
-
-        stdout_text = Path(stdout_temp_path).read_text(
-            encoding="utf-8",
-            errors="replace",
-        )
-        stderr_text = Path(stderr_temp_path).read_text(
-            encoding="utf-8",
-            errors="replace",
-        )
-
-        return ClaudeRunResult(
-            returncode=int(final_returncode if final_returncode is not None else -1),
-            stdout=stdout_text,
-            stderr=stderr_text,
-            command=command,
-            timed_out=timed_out,
-            timeout_seconds=timeout_seconds,
-        )
-    finally:
-        if stdout_temp_path:
-            try:
-                os.unlink(stdout_temp_path)
-            except OSError:
-                pass
-        if stderr_temp_path:
-            try:
-                os.unlink(stderr_temp_path)
-            except OSError:
-                pass
+    return ClaudeRunResult(
+        returncode=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+        command=command,
+    )
 
 
 def start_claude_remote_control_session(
@@ -335,17 +236,3 @@ def _extract_bridge_url(text: str) -> str:
         return f"https://claude.ai/code?bridge={environment_id}"
 
     return ""
-
-
-def _terminate_process(process: subprocess.Popen) -> None:
-    try:
-        process.terminate()
-    except OSError:
-        pass
-
-
-def _kill_process(process: subprocess.Popen) -> None:
-    try:
-        process.kill()
-    except OSError:
-        pass

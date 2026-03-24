@@ -11,11 +11,6 @@ from claude_orchestrator.infrastructure.schema_validator import SchemaValidator
 
 
 class RunPlanDirectorUseCase:
-    CORE_DOC_PATHS_FOR_PLAN_DIRECTOR = [
-        ".claude_orchestrator/docs/completion_definition.md",
-        ".claude_orchestrator/docs/feature_inventory.md",
-    ]
-
     def execute(
         self,
         *,
@@ -54,9 +49,6 @@ class RunPlanDirectorUseCase:
             cycle,
         )
         task_list_summary = runtime.build_task_list_summary()
-        core_docs_text = runtime.build_core_docs_text(
-            self.CORE_DOC_PATHS_FOR_PLAN_DIRECTOR
-        )
 
         prompt_text = self._build_prompt(
             source_task_id=source_task_id,
@@ -76,7 +68,6 @@ class RunPlanDirectorUseCase:
             planner_safe_state_json=planner_safe_state_json,
             planner_improvement_state_json=planner_improvement_state_json,
             task_list_summary=task_list_summary,
-            core_docs_text=core_docs_text,
             output_schema=output_schema,
             output_json_path=output_json_path,
         )
@@ -143,7 +134,6 @@ class RunPlanDirectorUseCase:
         planner_safe_state_json: str,
         planner_improvement_state_json: str,
         task_list_summary: str,
-        core_docs_text: str,
         output_schema: str,
         output_json_path: Path,
     ) -> str:
@@ -158,7 +148,6 @@ class RunPlanDirectorUseCase:
             state_json=state_json_text,
             project_config_json=project_config_json_text,
             development_mode=development_mode,
-            core_docs_text=core_docs_text,
             implementer_report_json=implementer_report_json,
             reviewer_report_json=reviewer_report_json,
             director_report_json=director_report_json,

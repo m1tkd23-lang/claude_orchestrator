@@ -13,8 +13,6 @@ class ShowNextUseCase:
     CORE_DOC_PATHS_FOR_TASK_ROUTER = [
         ".claude_orchestrator/docs/project_core/開発の目的本筋.md",
         ".claude_orchestrator/docs/task_maps/planner_task_router判断材料マップ.md",
-        ".claude_orchestrator/docs/completion_definition.md",
-        ".claude_orchestrator/docs/task_splitting_rules.md",
     ]
 
     def execute(self, repo_path: str, task_id: str) -> dict:

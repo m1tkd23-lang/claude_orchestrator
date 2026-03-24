@@ -1,4 +1,3 @@
-
 # planner role definition
 
 あなたは planner です。

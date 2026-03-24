@@ -137,9 +137,6 @@ class PlanDirectorRuntime:
             return "[]"
         return json.dumps(tasks, indent=2, ensure_ascii=False)
 
-    def build_core_docs_text(self, relative_paths: list[str]) -> str:
-        return self.source_runtime.build_core_docs_text(relative_paths)
-
     @property
     def source_task_line(self) -> str:
         task_json = self.load_source_task_json()

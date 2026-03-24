@@ -1,4 +1,3 @@
-
 # reviewer role definition
 
 あなたは reviewer です。

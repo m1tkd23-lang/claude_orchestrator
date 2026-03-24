@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from claude_orchestrator.application.usecases.advance_task_usecase import (
     AdvanceTaskUseCase,
@@ -37,7 +36,6 @@ from claude_orchestrator.application.usecases.status_usecase import (
 from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
 )
-from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -257,18 +255,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_runtime(repo_path: str, task_id: str) -> TaskRuntime:
-    return TaskRuntime(
-        target_repo=Path(repo_path).resolve(),
-        task_id=task_id,
-    )
-
-
-def _load_current_state(repo_path: str, task_id: str) -> dict:
-    runtime = _load_runtime(repo_path=repo_path, task_id=task_id)
-    return runtime.load_state_json()
-
-
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -302,69 +288,33 @@ def main() -> None:
         )
         print(f"Next role   : {result['role']}")
         print(f"Cycle       : {result['cycle']}")
-        print(f"Revision    : {result['revision']}")
         print(f"Prompt file : {result['prompt_path']}")
         print(f"Output json : {result['output_json_path']}")
         return
 
     if args.command == "validate-report":
-        state = _load_current_state(
-            repo_path=args.repo,
-            task_id=args.task_id,
-        )
-        expected_role = str(state.get("next_role", "")).strip()
-        expected_cycle = int(state.get("cycle", 1))
-        expected_revision = int(state.get("revision", 1))
-
-        if expected_role == "none":
-            raise ValueError(f"Task already finished or blocked: {args.task_id}")
-
-        if args.role != expected_role:
-            raise ValueError(
-                "role mismatch with current state: "
-                f"requested_role={args.role}, state_next_role={expected_role}"
-            )
-
         usecase = ValidateReportUseCase()
         result = usecase.execute(
             repo_path=args.repo,
             task_id=args.task_id,
             role=args.role,
-            expected_cycle=expected_cycle,
-            expected_revision=expected_revision,
         )
         print(f"Valid       : {result['valid']}")
         print(f"Role        : {result['role']}")
         print(f"Cycle       : {result['cycle']}")
-        print(f"Revision    : {result['revision']}")
         print(f"Report file : {result['report_path']}")
         return
 
     if args.command == "advance":
-        state = _load_current_state(
-            repo_path=args.repo,
-            task_id=args.task_id,
-        )
-        expected_role = str(state.get("next_role", "")).strip()
-        expected_cycle = int(state.get("cycle", 1))
-        expected_revision = int(state.get("revision", 1))
-
-        if expected_role == "none":
-            raise ValueError(f"Task already finished or blocked: {args.task_id}")
-
         usecase = AdvanceTaskUseCase()
         result = usecase.execute(
             repo_path=args.repo,
             task_id=args.task_id,
-            expected_role=expected_role,
-            expected_cycle=expected_cycle,
-            expected_revision=expected_revision,
         )
         print(f"Status      : {result['status']}")
         print(f"Current     : {result['current_stage']}")
         print(f"Next role   : {result['next_role']}")
         print(f"Cycle       : {result['cycle']}")
-        print(f"Revision    : {result['revision']}")
         print(f"State file  : {result['state_path']}")
         return
 
@@ -416,7 +366,6 @@ def main() -> None:
         print(f"Current     : {result['current_stage']}")
         print(f"Next role   : {result['next_role']}")
         print(f"Cycle       : {result['cycle']}")
-        print(f"Revision    : {result['revision']}")
         print(f"State file  : {result['state_path']}")
         return
 
