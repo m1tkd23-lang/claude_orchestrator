@@ -65,16 +65,27 @@ class RunTaskUseCase:
             )
 
             initial_state = runtime.load_state_json()
-            initial_next_role = str(initial_state.get("next_role", ""))
+            initial_status = str(initial_state.get("status", "")).strip()
+            initial_next_role = str(initial_state.get("next_role", "")).strip()
             initial_cycle = str(initial_state.get("cycle", ""))
             initial_revision = str(initial_state.get("revision", 1))
 
             if initial_next_role == "none":
+                ui_status = "completed" if initial_status == "completed" else "stopped"
+                monitor_message = (
+                    "completed" if initial_status == "completed" else initial_status
+                )
+                finished_label = (
+                    "completed"
+                    if initial_status == "completed"
+                    else (initial_status or "finished")
+                )
+
                 self._emit(
                     event_callback,
                     {
                         "type": "status_changed",
-                        "status": "completed",
+                        "status": ui_status,
                         "step": "idle",
                         "role": "none",
                         "cycle": initial_cycle,
@@ -84,14 +95,17 @@ class RunTaskUseCase:
                     event_callback,
                     {
                         "type": "monitor_message",
-                        "message": "completed",
+                        "message": monitor_message,
                     },
                 )
                 self._emit(
                     event_callback,
                     {
                         "type": "log_message",
-                        "message": f"[INFO] task already completed: {task_id}",
+                        "message": (
+                            f"[INFO] task already {finished_label}: "
+                            f"{task_id} (status={initial_status})"
+                        ),
                     },
                 )
                 self._emit(
@@ -100,12 +114,12 @@ class RunTaskUseCase:
                         "type": "task_completed",
                         "task_id": task_id,
                         "cycle": initial_cycle,
-                        "status": "completed",
+                        "status": initial_status or "stopped",
                     },
                 )
                 return {
                     "task_id": task_id,
-                    "status": "completed",
+                    "status": initial_status or "stopped",
                     "cycle": int(initial_state.get("cycle", 1)),
                     "revision": int(initial_state.get("revision", 1)),
                     "current_stage": str(initial_state.get("current_stage", "")),
@@ -406,14 +420,22 @@ class RunTaskUseCase:
 
         if stdout_text:
             self._emit(event_callback, {"type": "monitor_message", "message": "stdout"})
-            self._emit(event_callback, {"type": "monitor_message", "message": stdout_text})
-            self._emit(event_callback, {"type": "log_message", "message": "[INFO] claude stdout:"})
+            self._emit(
+                event_callback, {"type": "monitor_message", "message": stdout_text}
+            )
+            self._emit(
+                event_callback, {"type": "log_message", "message": "[INFO] claude stdout:"}
+            )
             self._emit(event_callback, {"type": "log_message", "message": stdout_text})
 
         if stderr_text:
             self._emit(event_callback, {"type": "monitor_message", "message": "stderr"})
-            self._emit(event_callback, {"type": "monitor_message", "message": stderr_text})
-            self._emit(event_callback, {"type": "log_message", "message": "[INFO] claude stderr:"})
+            self._emit(
+                event_callback, {"type": "monitor_message", "message": stderr_text}
+            )
+            self._emit(
+                event_callback, {"type": "log_message", "message": "[INFO] claude stderr:"}
+            )
             self._emit(event_callback, {"type": "log_message", "message": stderr_text})
 
         report_exists = Path(output_json_path).exists()
@@ -457,8 +479,7 @@ class RunTaskUseCase:
 
         if claude_result.returncode != 0 and not report_exists:
             raise RuntimeError(
-                "claude command failed. "
-                f"returncode={claude_result.returncode}"
+                "claude command failed. " f"returncode={claude_result.returncode}"
             )
 
         if not report_exists:

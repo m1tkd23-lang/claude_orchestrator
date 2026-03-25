@@ -39,6 +39,7 @@ from claude_orchestrator.gui.state_helpers import (
     require_repo_path,
     require_selected_task_id,
     set_active_pipeline_task,
+    set_selected_task,
 )
 from claude_orchestrator.infrastructure.next_task_approval_store import (
     NextTaskApprovalStore,
@@ -190,6 +191,7 @@ class MainWindowPlannerMixin:
 
             created_task_id = str(result["created_task_id"])
             self._current_task_id = created_task_id
+            set_selected_task(self, created_task_id)
             set_active_pipeline_task(self, created_task_id)
 
             if self._planner_state_store is not None:
@@ -284,7 +286,16 @@ class MainWindowPlannerMixin:
         try:
             repo_path = require_repo_path(self)
             handle_repo_changed(self, repo_path)
-            source_task_id = require_selected_task_id(self)
+
+            source_task_id = ""
+            if isinstance(self._plan_director_report, dict):
+                source_task_id = self._resolve_plan_director_source_task_id(
+                    self._plan_director_report
+                )
+            if not source_task_id:
+                source_task_id = str(getattr(self, "_active_pipeline_task_id", "")).strip()
+            if not source_task_id:
+                source_task_id = require_selected_task_id(self)
 
             result = RejectNextTaskUseCase().execute(
                 repo_path=repo_path,
@@ -317,7 +328,16 @@ class MainWindowPlannerMixin:
     def _create_next_task_from_plan_director_and_start(self) -> None:
         repo_path = require_repo_path(self)
         handle_repo_changed(self, repo_path)
-        source_task_id = require_selected_task_id(self)
+
+        source_task_id = ""
+        if isinstance(self._plan_director_report, dict):
+            source_task_id = self._resolve_plan_director_source_task_id(
+                self._plan_director_report
+            )
+        if not source_task_id:
+            source_task_id = str(getattr(self, "_active_pipeline_task_id", "")).strip()
+        if not source_task_id:
+            source_task_id = require_selected_task_id(self)
 
         self._waiting_next_task_approval = False
         self._pending_auto_approve_next_task = False
@@ -363,7 +383,11 @@ class MainWindowPlannerMixin:
         created_proposal_id = str(result.get("selected_proposal_id", "")).strip()
         created_planner_role = str(result.get("selected_planner_role", "")).strip()
 
+        if not created_task_id:
+            raise ValueError("created_task_id is empty.")
+
         self._current_task_id = created_task_id
+        set_selected_task(self, created_task_id)
         set_active_pipeline_task(self, created_task_id)
 
         if (
@@ -393,7 +417,7 @@ class MainWindowPlannerMixin:
         )
 
         self._refresh_pipeline_tab()
-        self.on_run_claude_step()
+        self.on_run_claude_step(task_id=created_task_id)
 
     def _start_planner_generation(self, *, auto_run_plan_director: bool) -> None:
         if self._planner_active:
@@ -860,7 +884,10 @@ class MainWindowPlannerMixin:
             raise ValueError("plan_director_report is invalid.")
 
         repo_path = require_repo_path(self)
-        source_task_id = str(result.get("source_task_id", "")).strip() or require_selected_task_id(self)
+        source_task_id = (
+            str(result.get("source_task_id", "")).strip()
+            or require_selected_task_id(self)
+        )
         cycle = int(result.get("cycle", 0))
 
         set_active_pipeline_task(self, source_task_id)

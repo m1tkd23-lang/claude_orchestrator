@@ -195,10 +195,6 @@ def get_display_target_task_id(window) -> str:
         if active_task_id:
             return active_task_id
 
-    oldest_incomplete_task_id = find_oldest_incomplete_task_id(window)
-    if oldest_incomplete_task_id:
-        return oldest_incomplete_task_id
-
     selected_task_id = str(getattr(window, "_selected_task_id", "")).strip()
     if selected_task_id:
         return selected_task_id
@@ -207,10 +203,22 @@ def get_display_target_task_id(window) -> str:
     if current_task_id:
         return current_task_id
 
+    oldest_incomplete_task_id = find_oldest_incomplete_task_id(window)
+    if oldest_incomplete_task_id:
+        return oldest_incomplete_task_id
+
     return ""
 
 
 def require_selected_task_id(window) -> str:
+    selected_task_id = str(getattr(window, "_selected_task_id", "")).strip()
+    if selected_task_id:
+        return selected_task_id
+
+    current_task_id = str(getattr(window, "_current_task_id", "")).strip()
+    if current_task_id:
+        return current_task_id
+
     task_id = get_display_target_task_id(window)
     if not task_id:
         raise ValueError("task を選択してください。")

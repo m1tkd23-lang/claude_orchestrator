@@ -86,16 +86,13 @@ class RunPlanDirectorUseCase:
         claude_result = run_claude_print_mode(
             repo_path=repo_path,
             prompt_text=prompt_text,
+            output_json_path=str(output_json_path),
         )
-        if claude_result.returncode != 0:
-            raise RuntimeError(
-                "claude command failed while running plan_director. "
-                f"returncode={claude_result.returncode}"
-            )
 
         if not output_json_path.exists():
-            raise FileNotFoundError(
-                f"plan_director report file not found: {output_json_path}"
+            raise RuntimeError(
+                "claude command failed while running plan_director and no report was generated. "
+                f"returncode={claude_result.returncode}, stderr={claude_result.stderr.strip()}"
             )
 
         with output_json_path.open("r", encoding="utf-8") as f:
@@ -149,7 +146,11 @@ class RunPlanDirectorUseCase:
     ) -> str:
         task_json_text = json.dumps(task_json, indent=2, ensure_ascii=False)
         state_json_text = json.dumps(state_json, indent=2, ensure_ascii=False)
-        project_config_json_text = json.dumps(project_config, indent=2, ensure_ascii=False)
+        project_config_json_text = json.dumps(
+            project_config,
+            indent=2,
+            ensure_ascii=False,
+        )
 
         return render_prompt(
             template,

@@ -16,7 +16,7 @@ from claude_orchestrator.gui.state_helpers import (
 
 
 class MainWindowAutoRunMixin:
-    def on_run_claude_step(self) -> None:
+    def on_run_claude_step(self, task_id: str | None = None) -> None:
         try:
             if self._is_pipeline_busy():
                 append_log(self, "[INFO] pipeline is already active.")
@@ -24,10 +24,10 @@ class MainWindowAutoRunMixin:
 
             repo_path = require_repo_path(self)
             handle_repo_changed(self, repo_path)
-            task_id = require_selected_task_id(self)
+            resolved_task_id = str(task_id or "").strip() or require_selected_task_id(self)
 
-            set_active_pipeline_task(self, task_id)
-            load_selected_task_detail(self, task_id)
+            set_active_pipeline_task(self, resolved_task_id)
+            load_selected_task_detail(self, resolved_task_id)
             refresh_task_list(self)
 
             self._reset_execution_view()
@@ -56,7 +56,10 @@ class MainWindowAutoRunMixin:
             self._refresh_pipeline_tab()
 
             self._auto_run_thread = QThread(self)
-            self._auto_run_worker = AutoRunWorker(repo_path=repo_path, task_id=task_id)
+            self._auto_run_worker = AutoRunWorker(
+                repo_path=repo_path,
+                task_id=resolved_task_id,
+            )
             self._auto_run_worker.moveToThread(self._auto_run_thread)
 
             self._auto_run_thread.started.connect(self._auto_run_worker.run)
@@ -214,6 +217,12 @@ class MainWindowAutoRunMixin:
                 if current_active_task_id:
                     set_active_pipeline_task(self, current_active_task_id)
                     load_selected_task_detail(self, current_active_task_id)
+
+                # auto-run 完了直後に後工程ブロッカーが残留していると
+                # planner 起動が拒否されるため、ここで明示的に整える
+                self._waiting_next_task_approval = False
+                self._plan_director_active = False
+                self._planner_active = False
 
                 append_log(
                     self,
