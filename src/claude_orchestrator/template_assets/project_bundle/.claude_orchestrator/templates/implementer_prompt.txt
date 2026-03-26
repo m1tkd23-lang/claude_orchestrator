@@ -36,6 +36,16 @@ repoルート基準の相対パス:
 - status が blocked または need_input の場合は、risks または questions に停止理由や確認事項を残してください
 - 実在しないファイルや実行していないコマンドを記録しないでください
 
+## docs_update_result の記入ルール
+- docs_update_result は必須です
+- この task 実行中に docs を実際に更新したかどうかを記録してください
+- docs を更新した場合は update_performed = true にし、updated_docs に実際に更新した docs パスを入れてください
+- docs を更新していない場合は update_performed = false にし、updated_docs は空配列にしてください
+- update_summary には「何を更新したか」または「なぜ更新しなかったか」を簡潔に書いてください
+- pending_followup_docs には、今回更新しなかったが後続で更新が必要そうな docs を配列で書いてください
+- 実在しない docs を updated_docs / pending_followup_docs に入れてはいけません
+- docs 更新不要なら、その理由が update_summary から読めるようにしてください
+
 ## 重要な実行指示
 - 作業結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
 - 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください

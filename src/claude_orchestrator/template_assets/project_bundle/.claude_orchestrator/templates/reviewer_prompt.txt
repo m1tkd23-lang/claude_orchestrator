@@ -36,6 +36,16 @@ repoルート基準の相対パス:
 - decision が blocked の場合は、risks に評価不能理由を残してください
 - 実装そのものは行わず、評価に徹してください
 
+## docs_review_result の記入ルール
+- docs_review_result は必須です
+- implementer report の docs_update_result を確認したうえで記入してください
+- checked には docs 更新状況を確認したかどうかを入れてください
+- consistency_ok には docs 更新内容または docs 未更新判断に不整合がないかを評価して入れてください
+- issues には docs 反映漏れ、不整合、誤った docs 更新などがあれば具体的に書いてください
+- notes には docs 観点での補足を短く書いてください
+- docs 更新が不要で妥当なら、issues は空配列でもかまいません
+- docs 更新が必要そうなのに未反映であれば、must_fix または nice_to_have と docs_review_result.issues の両方に根拠を残してください
+
 ## 重要な実行指示
 - レビュー結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
 - 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください

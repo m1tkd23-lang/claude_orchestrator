@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+from datetime import datetime
 
 from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
@@ -13,6 +14,9 @@ from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
 
 class AdvanceTaskUseCase:
+    MAX_HISTORY_BLOCKS = 20
+    MAX_RISKS = 5
+
     def execute(
         self,
         repo_path: str,
@@ -35,20 +39,17 @@ class AdvanceTaskUseCase:
 
         if current_role != str(expected_role):
             raise ValueError(
-                "state drift detected: "
-                f"expected_role={expected_role}, actual_role={current_role}"
+                f"state drift detected: expected_role={expected_role}, actual_role={current_role}"
             )
 
         if current_cycle != int(expected_cycle):
             raise ValueError(
-                "state drift detected: "
-                f"expected_cycle={expected_cycle}, actual_cycle={current_cycle}"
+                f"state drift detected: expected_cycle={expected_cycle}, actual_cycle={current_cycle}"
             )
 
         if current_revision != int(expected_revision):
             raise ValueError(
-                "state revision mismatch: "
-                f"expected_revision={expected_revision}, actual_revision={current_revision}"
+                f"state revision mismatch: expected_revision={expected_revision}, actual_revision={current_revision}"
             )
 
         ValidateReportUseCase().execute(
@@ -65,6 +66,14 @@ class AdvanceTaskUseCase:
 
         if current_role == "task_router":
             self._apply_task_router_result(runtime=runtime, report=report)
+
+        if current_role == "director" and report.get("final_action") == "approve":
+            self._append_task_history(
+                runtime=runtime,
+                repo_path=target_repo,
+                task_id=task_id,
+                cycle=current_cycle,
+            )
 
         next_state_values = decide_next_from_report(
             role=current_role,
@@ -93,6 +102,113 @@ class AdvanceTaskUseCase:
             "state_path": str(runtime.state_json_path),
         }
 
+    def _append_task_history(
+        self,
+        *,
+        runtime: TaskRuntime,
+        repo_path: Path,
+        task_id: str,
+        cycle: int,
+    ) -> None:
+        base_dir = repo_path / ".claude_orchestrator" / "docs" / "task_history"
+        history_path = base_dir / "過去TASK作業記録.md"
+        archive_dir = base_dir / "archive"
+        archive_path = archive_dir / "task_history_archive.md"
+
+        base_dir.mkdir(parents=True, exist_ok=True)
+        archive_dir.mkdir(parents=True, exist_ok=True)
+
+        task_json = runtime.load_task_json()
+
+        implementer = self._safe_load(runtime.get_output_json_path("implementer", cycle))
+        director = self._safe_load(runtime.get_output_json_path("director", cycle))
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        summary = self._shorten(implementer.get("summary", ""), 120)
+        risks = director.get("remaining_risks", [])[: self.MAX_RISKS]
+
+        entry = (
+            f"\n## {task_id} : {task_json.get('title', '')}\n\n"
+            f"- 実行日時: {now}\n"
+            f"- task_type: {task_json.get('task_type')}\n"
+            f"- risk_level: {task_json.get('risk_level')}\n\n"
+            f"### 変更内容\n{summary}\n\n"
+            f"### 関連ファイル\n{self._format_list(implementer.get('changed_files', []))}\n\n"
+            f"### 注意点\n{self._format_list(risks)}\n"
+        )
+
+        if history_path.exists():
+            text = history_path.read_text(encoding="utf-8").rstrip()
+        else:
+            text = (
+                "# 過去TASK作業記録\n\n"
+                "## 目的\n"
+                "plannerが次タスクを判断するための短い知見のみを残す\n\n"
+                "---"
+            )
+
+        text += "\n" + entry
+        history_path.write_text(text, encoding="utf-8")
+
+        self._trim_history(history_path, archive_path)
+
+    def _trim_history(self, history_path: Path, archive_path: Path) -> None:
+        text = history_path.read_text(encoding="utf-8")
+
+        lines = text.splitlines()
+        blocks = []
+        current = []
+
+        for line in lines:
+            if line.startswith("## TASK-") and current:
+                blocks.append("\n".join(current))
+                current = []
+            current.append(line)
+
+        if current:
+            blocks.append("\n".join(current))
+
+        if len(blocks) <= 1:
+            return
+
+        header = blocks[0]
+        tasks = blocks[1:]
+
+        if len(tasks) <= self.MAX_HISTORY_BLOCKS:
+            return
+
+        overflow = tasks[:-self.MAX_HISTORY_BLOCKS]
+        remain = tasks[-self.MAX_HISTORY_BLOCKS:]
+
+        if archive_path.exists():
+            archive_text = archive_path.read_text(encoding="utf-8").rstrip()
+        else:
+            archive_text = "# Task History Archive\n\n---"
+
+        archive_text += "\n\n" + "\n\n".join(overflow)
+        archive_path.write_text(archive_text, encoding="utf-8")
+
+        new_text = header + "\n\n" + "\n\n".join(remain)
+        history_path.write_text(new_text, encoding="utf-8")
+
+    @staticmethod
+    def _shorten(text: str, limit: int = 120) -> str:
+        return text if len(text) <= limit else text[:limit] + "..."
+
+    @staticmethod
+    def _safe_load(path: Path) -> dict:
+        if not path.exists():
+            return {}
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @staticmethod
+    def _format_list(values: list) -> str:
+        if not values:
+            return "- none"
+        return "\n".join(f"- {v}" for v in values)
+
     @staticmethod
     def _apply_task_router_result(runtime: TaskRuntime, report: dict) -> None:
         task_json = runtime.load_task_json()
@@ -108,12 +224,5 @@ class AdvanceTaskUseCase:
             "reviewer": list(role_skill_plan.get("reviewer", [])),
             "director": list(role_skill_plan.get("director", [])),
         }
-        updated_task["skill_selection_source"] = "task_router"
-        updated_task["skill_selection_reason"] = list(
-            report.get("skill_selection_reason", [])
-        )
-        updated_task["initial_execution_notes"] = list(
-            report.get("initial_execution_notes", [])
-        )
 
         write_json(runtime.task_json_path, updated_task)

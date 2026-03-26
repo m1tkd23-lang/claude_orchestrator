@@ -1,4 +1,3 @@
-
 {
   "_meta": {
     "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/director_report.schema.json"
@@ -14,7 +13,8 @@
     "used_skills",
     "summary",
     "next_actions",
-    "remaining_risks"
+    "remaining_risks",
+    "docs_decision"
   ],
   "properties": {
     "_meta": {
@@ -74,6 +74,36 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "docs_decision": {
+      "type": "object",
+      "required": [
+        "status",
+        "reason",
+        "followup_actions"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "sufficient",
+            "followup_needed",
+            "not_applicable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "followup_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

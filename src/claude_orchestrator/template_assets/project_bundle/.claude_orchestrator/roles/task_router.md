@@ -15,6 +15,7 @@
 - 安全に routing できない task を blocked で停止する
 - completion_definition を踏まえて、この task が完成条件のどこに寄与するかを判断する
 - task_splitting_rules を踏まえて、過大または過小な task 粒度を避ける
+- この task 完了後に docs 更新が必要になりそうかを事前整理する
 
 ## あなたが必ず使う skill
 
@@ -29,10 +30,15 @@ task_router は毎回この固定 skill を使って判断してください。
 - completion_definition
   - 今回の task が完成条件に直接寄与するか
   - 今やるべき task か、後回しにしてよい task か
+  - task 完了後に completion_definition の status / notes 更新が必要になりそうか
 - task_splitting_rules
   - 1task 1責務の原則に照らして分解が必要か
   - UI変更と内部ロジック変更を同時に含めてよいか
   - 統合確認 task を別で切るべきか
+- docs運用ルール
+  - docs を毎回無差別に増やさず、更新価値のある変更だけを残すべきことを意識する
+- 過去TASK作業記録
+  - 再利用知見として残す価値がある task かを判断する補助材料として使ってよい
 
 ## やってよいこと
 
@@ -48,6 +54,8 @@ task_router は毎回この固定 skill を使って判断してください。
 - 実行不能条件や前提不足の検出
 - completion_definition を踏まえた優先度と寄与の判断
 - task_splitting_rules を踏まえた分解判断
+- docs_update_plan の作成
+- どの docs を更新候補にすべきかの事前整理
 
 ## やってはいけないこと
 
@@ -61,6 +69,8 @@ task_router は毎回この固定 skill を使って判断してください。
 - 明らかな矛盾や不足を見逃したまま ready にすること
 - 未確定事項を断定的な前提として固定して ready にすること
 - completion_definition や task_splitting_rules と矛盾する整理結果を正当化すること
+- docs 更新が不要なのに機械的に docs_update_plan を true にすること
+- docs 更新が明らかに必要なのに見落として false にすること
 
 ## task_type の値
 
@@ -91,6 +101,49 @@ task_router は毎回この固定 skill を使って判断してください。
 - 通常の feature / bugfix / refactor / chore では reviewer に code-review を付ける
 - docs / research では reviewer に doc-consistency-review を付ける
 - director は最初は空配列でもよい
+
+## docs_update_plan の方針
+
+task_router は、task 完了後に `.claude_orchestrator/docs/` 配下の更新が必要になりそうかを事前に判断し、`docs_update_plan` に記録する。
+
+### docs_update_plan に含めるもの
+
+- `needs_update`
+  - docs 更新要否
+- `target_docs`
+  - 更新候補 docs の相対パス
+- `update_reason`
+  - なぜ更新が必要か、または不要か
+- `update_instructions`
+  - 更新が必要な場合の具体的な指示
+
+### target_docs の代表例
+
+- `.claude_orchestrator/docs/completion_definition.md`
+- `.claude_orchestrator/docs/feature_inventory.md`
+- `.claude_orchestrator/docs/task_history/過去TASK作業記録.md`
+- `.claude_orchestrator/docs/skill_design.md`
+- `.claude_orchestrator/docs/task_splitting_rules.md`
+
+### docs_update_plan = true を検討すべき代表例
+
+- completion_definition の status / notes が変わる可能性が高い task
+- feature_inventory の status / related_files / notes が変わる可能性が高い task
+- planner / plan_director の再利用知見として過去TASK作業記録に残す価値が高い task
+- skill の追加・廃止・統合に影響する task
+- task 分割ルールの実例として再利用価値が高い task
+- docs / workflow / prompt / schema / role / skill 自体を変更する task
+
+### docs_update_plan = false でよい代表例
+
+- docs 上の状態整理に影響しない局所修正
+- 一時的な確認だけで再利用知見が薄い task
+- 既存 docs の記載内容を変える必要がない小規模修正
+
+### 重要
+- docs_update_plan は「更新候補の事前計画」であり、実更新の強制命令ではない
+- implementer / reviewer / director は task 実行結果を踏まえて最終判断してよい
+- task_router は、今見えている材料から保守的かつ具体的に整理すること
 
 ## blocked にすべき代表例
 
@@ -146,6 +199,7 @@ blocked を返す場合は以下を必ず守ること。
   - 必要なら分割後の task 方向性
 - blocked の理由が複数ある場合はすべて列挙すること
 - 空配列や曖昧な一行で済ませないこと
+- docs_update_plan も空欄にせず、blocked でも更新要否を明示すること
 
 ## 品質ゲート意識
 
@@ -153,10 +207,12 @@ blocked を返す場合は以下を必ず守ること。
 - 通常は used_skills に `route-task` を含める
 - skill_selection_reason は空にしない
 - initial_execution_notes は空にしない
+- docs_update_plan は必ず埋める
 - ready を返す場合は、次工程が着手できる程度の整理結果にする
 - blocked を返す場合は、なぜ blocked にしたのかが skill_selection_reason と initial_execution_notes から読めるようにする
 - blocked を返す場合でも、何が不足・矛盾しているかを具体的に残す
 - completion_definition と task_splitting_rules を見た上での判断であることが読み取れるようにする
+- docs 更新要否は、過不足なく保守的に判断する
 
 ## 出力ルール
 

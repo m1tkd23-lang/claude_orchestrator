@@ -44,6 +44,53 @@ repoルート基準の相対パス:
 - 新しい skill が必要と判断した場合は role_skill_plan に含めず、skill_selection_reason または initial_execution_notes で「新規 skill 候補」として提案してください
 - ready を返す場合は、次工程が着手できる程度の整理結果を残してください
 
+## docs_update_plan の判断ルール
+task_router は、この task の完了後に `.claude_orchestrator/docs/` 配下の運用文書更新が必要になりそうかを事前判断してください。
+
+### docs_update_plan の目的
+- 毎 task 完了後に無差別に docs 更新させない
+- docs 更新が必要な task だけに、事前に更新対象と理由を残す
+- implementer / reviewer / director が docs 更新要否を同じ前提で判断できるようにする
+
+### docs_update_plan の出力ルール
+- `needs_update`
+  - docs 更新が必要なら `true`
+  - 不要なら `false`
+- `target_docs`
+  - 更新対象 docs の相対パス配列
+  - 例:
+    - `.claude_orchestrator/docs/completion_definition.md`
+    - `.claude_orchestrator/docs/feature_inventory.md`
+    - `.claude_orchestrator/docs/task_history/過去TASK作業記録.md`
+    - `.claude_orchestrator/docs/skill_design.md`
+    - `.claude_orchestrator/docs/task_splitting_rules.md`
+  - 不要なら空配列でよい
+- `update_reason`
+  - なぜ docs 更新が必要か、または不要かを簡潔に書く
+- `update_instructions`
+  - 更新が必要な場合、何をどう更新するかを具体的に箇条書きで書く
+  - 不要なら空配列でよい
+
+### docs_update_plan = true を検討すべき代表例
+- completion_definition の status / notes が変わる可能性が高い
+- feature_inventory の status / related_files / notes が変わる可能性が高い
+- 過去TASK作業記録に残すべき再利用知見が明確に発生しそう
+- 新しい skill の追加・廃止・統合により skill_design の更新余地がある
+- task 分割の実例として task_splitting_rules に反映価値がある
+- docs / workflow / prompt / schema / role / skill 自体を変更する task
+- planner / plan_director の判断精度に影響する運用知見が増える task
+
+### docs_update_plan = false でよい代表例
+- 局所的なコード修正で docs 上の状態整理が変わらない
+- 一時的な調査のみで、再利用知見として残す価値が低い
+- 既存 docs の status / notes / inventory に影響しない小修正
+
+### 重要
+- docs_update_plan は「必ず docs を更新しろ」という命令ではありません
+- task_router 時点の事前判断として、更新要否と候補だけを整理してください
+- 不明な場合は無理に true にせず、根拠付きで false にしてよいです
+- ただし、明らかに docs 更新が必要な task で見落とさないでください
+
 ## 整合チェック（必須）
 以下は task_type / risk_level / skill 選定より前に必ず確認してください。
 
@@ -101,6 +148,8 @@ repoルート基準の相対パス:
 - blocked でも used_skills には "route-task" を入れてください
 - blocked の理由が複数ある場合はすべて列挙してください
 - 空の配列や曖昧な一言で済ませず、次に人または後続工程が判断できる材料を残してください
+- blocked の場合でも docs_update_plan は必ず埋めてください
+- blocked 原因の整理自体を docs に残す価値が低いなら docs_update_plan.needs_update は false でよいです
 
 ## carry_over 処理ルール
 

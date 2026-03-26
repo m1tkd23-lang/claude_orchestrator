@@ -40,6 +40,17 @@ repoルート基準の相対パス:
 - final_action が stop の場合は、停止理由が summary から読めるようにしてください
 - director は自分で実装せず、判断に徹してください
 
+## docs_decision の記入ルール
+- docs_decision は必須です
+- implementer report の docs_update_result と reviewer report の docs_review_result を確認したうえで判断してください
+- status は以下から選んでください
+  - sufficient: 今回の task に必要な docs 反映は十分
+  - followup_needed: docs 反映は不足しており、後続対応が必要
+  - not_applicable: 今回の task では docs 判断が実質不要
+- reason にはその判断理由を具体的に書いてください
+- followup_needed の場合は、followup_actions を空配列にせず、何をどの docs に反映すべきか具体的に書いてください
+- sufficient / not_applicable の場合も、reason から判断根拠が読めるようにしてください
+
 ## 重要な実行指示
 - 判断結果の JSON を作成するだけでなく、必ず指定された保存先にファイルとして保存してください
 - 保存先は必ずこの task の対象 repo 配下の .claude_orchestrator を使用してください

@@ -1,4 +1,3 @@
-
 {
   "_meta": {
     "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/reviewer_report.schema.json"
@@ -15,7 +14,8 @@
     "summary",
     "must_fix",
     "nice_to_have",
-    "risks"
+    "risks",
+    "docs_review_result"
   ],
   "properties": {
     "_meta": {
@@ -82,6 +82,38 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "docs_review_result": {
+      "type": "object",
+      "required": [
+        "checked",
+        "consistency_ok",
+        "issues",
+        "notes"
+      ],
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "consistency_ok": {
+          "type": "boolean"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true

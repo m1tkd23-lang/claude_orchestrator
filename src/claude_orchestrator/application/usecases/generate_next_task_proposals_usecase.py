@@ -96,7 +96,8 @@ class GenerateNextTaskProposalsUseCase:
         with output_json_path.open("r", encoding="utf-8") as f:
             planner_report = json.load(f)
 
-        SchemaValidator(runtime.schemas_dir).validate_report(
+        validator = SchemaValidator(runtime.schemas_dir)
+        validator.validate_report(
             role=planner_role,
             data=planner_report,
         )
@@ -107,6 +108,16 @@ class GenerateNextTaskProposalsUseCase:
             report=planner_report,
         )
 
+        proposal_paths = runtime.write_proposal_files(
+            cycle=cycle,
+            planner_role=planner_role,
+            planner_report=planner_report,
+        )
+        for proposal_path in proposal_paths:
+            with proposal_path.open("r", encoding="utf-8") as f:
+                proposal_data = json.load(f)
+            validator.validate_proposal(data=proposal_data)
+
         return {
             "source_task_id": source_task_id,
             "planner_role": planner_role,
@@ -114,6 +125,7 @@ class GenerateNextTaskProposalsUseCase:
             "cycle": cycle,
             "prompt_path": str(prompt_path),
             "output_json_path": str(output_json_path),
+            "proposal_paths": [str(path) for path in proposal_paths],
             "planner_report": planner_report,
             "stdout": claude_result.stdout,
             "stderr": claude_result.stderr,

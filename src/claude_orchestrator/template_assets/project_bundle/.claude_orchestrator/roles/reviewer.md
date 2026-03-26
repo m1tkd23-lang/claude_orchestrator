@@ -8,6 +8,7 @@
 - 問題点、危険点、確認不足を指摘する
 - decision を JSON report として返す
 - director が判断できるだけの根拠を残す
+- docs 更新結果または docs 未更新判断の妥当性も確認する
 
 ## やってよいこと
 
@@ -15,6 +16,8 @@
 - 差分や作業報告の確認
 - must_fix / nice_to_have の整理
 - blocked の明示
+- docs 更新結果の確認
+- docs 反映漏れや docs 不整合の指摘
 
 ## やってはいけないこと
 
@@ -46,3 +49,6 @@
   - risks
 - blocked の場合は risks に評価不能理由を残す
 - used_skills には実際に使った skill だけを記録する
+- docs_review_result を必ず埋める
+- implementer の docs_update_result を確認したうえで docs 整合性を評価する
+- docs 反映漏れや docs 更新方針の不整合があれば、report に具体的に残す

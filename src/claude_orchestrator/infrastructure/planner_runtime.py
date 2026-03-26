@@ -1,6 +1,7 @@
 # src\claude_orchestrator\infrastructure\planner_runtime.py
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 import json
 
@@ -101,6 +102,26 @@ class PlannerRuntime:
     def get_prompt_path(self, cycle: int, planner_role: str) -> Path:
         return self.planner_dir / f"{planner_role}_prompt_v{cycle}.txt"
 
+    def get_proposals_dir(self, cycle: int, planner_role: str) -> Path:
+        normalized = self.validate_planner_role(planner_role)
+        return self.planner_dir / "proposals" / normalized / f"cycle_{cycle}"
+
+    def get_proposal_path(
+        self,
+        *,
+        cycle: int,
+        planner_role: str,
+        proposal_id: str,
+    ) -> Path:
+        normalized_role = self.validate_planner_role(planner_role)
+        normalized_proposal_id = str(proposal_id).strip()
+        if not normalized_proposal_id:
+            raise ValueError("proposal_id must not be empty")
+        return (
+            self.get_proposals_dir(cycle=cycle, planner_role=normalized_role)
+            / f"{normalized_proposal_id}.json"
+        )
+
     def write_prompt(self, cycle: int, planner_role: str, content: str) -> Path:
         path = self.get_prompt_path(cycle=cycle, planner_role=planner_role)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +185,85 @@ class PlannerRuntime:
 
     def build_core_docs_text(self, relative_paths: list[str]) -> str:
         return self.source_runtime.build_core_docs_text(relative_paths)
+
+    def write_proposal_files(
+        self,
+        *,
+        cycle: int,
+        planner_role: str,
+        planner_report: dict,
+    ) -> list[Path]:
+        normalized_role = self.validate_planner_role(planner_role)
+        proposals = planner_report.get("proposals", []) or []
+        if not isinstance(proposals, list):
+            raise ValueError("planner_report.proposals must be an array")
+
+        now_text = self._current_timestamp_text()
+        written_paths: list[Path] = []
+
+        for proposal in proposals:
+            if not isinstance(proposal, dict):
+                raise ValueError("Each planner proposal must be an object")
+
+            proposal_id = str(proposal.get("proposal_id", "")).strip()
+            if not proposal_id:
+                raise ValueError("planner proposal_id must not be empty")
+
+            proposal_path = self.get_proposal_path(
+                cycle=cycle,
+                planner_role=normalized_role,
+                proposal_id=proposal_id,
+            )
+            proposal_path.parent.mkdir(parents=True, exist_ok=True)
+
+            enriched = self._build_proposal_document(
+                proposal=proposal,
+                proposal_path=proposal_path,
+                now_text=now_text,
+            )
+
+            with proposal_path.open("w", encoding="utf-8") as f:
+                json.dump(enriched, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+
+            written_paths.append(proposal_path)
+
+        return written_paths
+
+    def _build_proposal_document(
+        self,
+        *,
+        proposal: dict,
+        proposal_path: Path,
+        now_text: str,
+    ) -> dict:
+        document = json.loads(json.dumps(proposal, ensure_ascii=False))
+
+        relative_path = proposal_path.relative_to(self.target_repo).as_posix()
+        existing_meta = document.get("_meta")
+        meta = existing_meta if isinstance(existing_meta, dict) else {}
+        meta["relative_path"] = relative_path
+        document["_meta"] = meta
+
+        if "state" not in document:
+            document["state"] = "proposed"
+        if "created_task_id" not in document:
+            document["created_task_id"] = None
+        if not str(document.get("created_at", "")).strip():
+            document["created_at"] = now_text
+        if not str(document.get("updated_at", "")).strip():
+            document["updated_at"] = now_text
+
+        return document
+
+    @staticmethod
+    def _current_timestamp_text() -> str:
+        return (
+            datetime.now(timezone.utc)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
     @classmethod
     def validate_planner_role(cls, planner_role: str) -> str:
