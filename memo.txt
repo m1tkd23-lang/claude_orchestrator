@@ -1,0 +1,16 @@
+#初期セットアップ
+
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .
+
+#起動方法
+
+$env:PYTHONPATH="src"
+python apps/gui_main.py
+
+#exe化
+
+.\build_exe.ps1

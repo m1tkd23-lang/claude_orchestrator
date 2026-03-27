@@ -47,6 +47,29 @@ def _resolve_claude_path() -> Path:
     return Path(claude_path).resolve()
 
 
+def _build_windows_hidden_startupinfo() -> subprocess.STARTUPINFO | None:
+    if not sys.platform.startswith("win"):
+        return None
+
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return startupinfo
+
+
+def _build_windows_creationflags(*, new_console: bool = False) -> int:
+    if not sys.platform.startswith("win"):
+        return 0
+
+    flags = 0
+    flags |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+    if new_console:
+        flags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+
+    return flags
+
+
 def run_claude_print_mode(
     *,
     repo_path: str,
@@ -71,9 +94,15 @@ def run_claude_print_mode(
     stderr_temp_path = ""
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".claude_stdout.log") as stdout_tmp:
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".claude_stdout.log",
+        ) as stdout_tmp:
             stdout_temp_path = stdout_tmp.name
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".claude_stderr.log") as stderr_tmp:
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".claude_stderr.log",
+        ) as stderr_tmp:
             stderr_temp_path = stderr_tmp.name
 
         with open(stdout_temp_path, "wb") as stdout_file, open(
@@ -87,6 +116,8 @@ def run_claude_print_mode(
                 stderr=stderr_file,
                 cwd=str(repo_root),
                 shell=False,
+                startupinfo=_build_windows_hidden_startupinfo(),
+                creationflags=_build_windows_creationflags(new_console=False),
             )
 
             assert process.stdin is not None
@@ -110,20 +141,12 @@ def run_claude_print_mode(
                 elapsed = time.time() - started_at
                 if elapsed >= timeout_seconds:
                     timed_out = True
-                    if report_exists:
-                        _terminate_process(process)
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            _kill_process(process)
-                            process.wait(timeout=5)
-                    else:
-                        _terminate_process(process)
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            _kill_process(process)
-                            process.wait(timeout=5)
+                    _terminate_process(process)
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        _kill_process(process)
+                        process.wait(timeout=5)
                     break
 
                 if report_detected_at is not None:
