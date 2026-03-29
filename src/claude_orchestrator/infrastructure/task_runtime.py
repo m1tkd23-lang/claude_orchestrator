@@ -1,8 +1,14 @@
-# src\claude_orchestrator\infrastructure\task_runtime.py
+# src/claude_orchestrator/infrastructure/task_runtime.py
 from __future__ import annotations
 
 from pathlib import Path
 import json
+
+from claude_orchestrator.services.context_compactor import (
+    build_director_context_for_next_role,
+    build_implementer_context_for_reviewer,
+    build_reviewer_context_for_director,
+)
 
 
 class TaskRuntime:
@@ -84,6 +90,18 @@ class TaskRuntime:
 
         return path.read_text(encoding="utf-8")
 
+    def load_previous_director_context_text(self, cycle: int) -> str:
+        if cycle <= 1:
+            return "{}"
+
+        path = self.inbox_dir / f"director_report_v{cycle - 1}.json"
+        if not path.exists():
+            return "{}"
+
+        report_json = self._load_json(path)
+        compact_json = build_director_context_for_next_role(report_json)
+        return json.dumps(compact_json, indent=2, ensure_ascii=False)
+
     def load_required_report_text(self, role: str, cycle: int) -> str:
         if role == "reviewer":
             path = self.inbox_dir / f"implementer_report_v{cycle}.json"
@@ -102,6 +120,24 @@ class TaskRuntime:
         if not path.exists():
             raise FileNotFoundError(f"Implementer report not found: {path}")
         return path.read_text(encoding="utf-8")
+
+    def load_implementer_context_for_reviewer_text(self, cycle: int) -> str:
+        path = self.inbox_dir / f"implementer_report_v{cycle}.json"
+        if not path.exists():
+            raise FileNotFoundError(f"Implementer report not found: {path}")
+
+        report_json = self._load_json(path)
+        compact_json = build_implementer_context_for_reviewer(report_json)
+        return json.dumps(compact_json, indent=2, ensure_ascii=False)
+
+    def load_reviewer_context_for_director_text(self, cycle: int) -> str:
+        path = self.inbox_dir / f"reviewer_report_v{cycle}.json"
+        if not path.exists():
+            raise FileNotFoundError(f"Reviewer report not found: {path}")
+
+        report_json = self._load_json(path)
+        compact_json = build_reviewer_context_for_director(report_json)
+        return json.dumps(compact_json, indent=2, ensure_ascii=False)
 
     def read_skill_text(self, role: str, skill_name: str) -> str:
         path = self.skills_dir / role / f"{skill_name}.md"

@@ -1,4 +1,4 @@
-# src\claude_orchestrator\application\usecases\show_next_usecase.py
+# src/claude_orchestrator/application/usecases/show_next_usecase.py
 from __future__ import annotations
 
 from pathlib import Path
@@ -112,7 +112,7 @@ class ShowNextUseCase:
             )
 
         if role == "implementer":
-            previous_director_report_json = runtime.load_previous_director_report_text(
+            previous_director_report_json = runtime.load_previous_director_context_text(
                 cycle
             )
             assigned_skills_text = runtime.read_role_skills_text("implementer", task_json)
@@ -124,7 +124,9 @@ class ShowNextUseCase:
             )
 
         if role == "reviewer":
-            implementer_report_json = runtime.load_required_report_text("reviewer", cycle)
+            implementer_report_json = (
+                runtime.load_implementer_context_for_reviewer_text(cycle)
+            )
             assigned_skills_text = runtime.read_role_skills_text("reviewer", task_json)
             return render_prompt(
                 template,
@@ -134,8 +136,10 @@ class ShowNextUseCase:
             )
 
         if role == "director":
-            implementer_report_json = runtime.load_implementer_report_text(cycle)
-            reviewer_report_json = runtime.load_required_report_text("director", cycle)
+            implementer_report_json = (
+                runtime.load_implementer_context_for_reviewer_text(cycle)
+            )
+            reviewer_report_json = runtime.load_reviewer_context_for_director_text(cycle)
             assigned_skills_text = runtime.read_role_skills_text("director", task_json)
             return render_prompt(
                 template,
