@@ -8,6 +8,7 @@ def build_implementer_context_for_reviewer(
     report_json: dict[str, Any],
 ) -> dict[str, Any]:
     """implementer report から reviewer 向け compact context を生成する."""
+    compact_results = _compact_results(_as_list(report_json.get("results")))
 
     return {
         "source_role": "implementer",
@@ -15,7 +16,9 @@ def build_implementer_context_for_reviewer(
         "summary": report_json.get("summary", ""),
         "changed_files": _as_list(report_json.get("changed_files")),
         "commands_run": _as_list(report_json.get("commands_run")),
-        "results": _as_list(report_json.get("results")),
+        "results": compact_results["results"],
+        "results_compact": compact_results["results"],
+        "results_compact_meta": compact_results["meta"],
         "risks": _as_list(report_json.get("risks")),
         "docs_update_result": _as_dict(report_json.get("docs_update_result")),
     }
@@ -67,3 +70,101 @@ def _as_dict(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return {}
+
+
+def _compact_results(
+    raw_results: list[Any],
+    *,
+    max_results: int = 8,
+    max_list_items: int = 6,
+    max_test_files: int = 4,
+) -> dict[str, Any]:
+    compact_items = [
+        _compact_result_item(
+            item,
+            max_list_items=max_list_items,
+            max_test_files=max_test_files,
+        )
+        for item in raw_results[:max_results]
+    ]
+    total_count = len(raw_results)
+    included_count = len(compact_items)
+    omitted_count = max(total_count - included_count, 0)
+
+    return {
+        "results": compact_items,
+        "meta": {
+            "total_count": total_count,
+            "included_count": included_count,
+            "omitted_count": omitted_count,
+            "max_results": max_results,
+            "max_list_items": max_list_items,
+            "max_test_files": max_test_files,
+        },
+    }
+
+
+def _compact_result_item(
+    item: Any,
+    *,
+    max_list_items: int,
+    max_test_files: int,
+) -> Any:
+    if isinstance(item, dict):
+        compact: dict[str, Any] = {}
+        for key, value in item.items():
+            if isinstance(value, list):
+                if key == "test_files":
+                    compact[key] = value[:max_test_files]
+                    compact["test_files_truncated_count"] = max(
+                        len(value) - len(compact[key]),
+                        0,
+                    )
+                else:
+                    compact[key] = value[:max_list_items]
+                    compact[f"{key}_truncated_count"] = max(
+                        len(value) - len(compact[key]),
+                        0,
+                    )
+                continue
+
+            if isinstance(value, dict):
+                compact[key] = _compact_result_nested_dict(
+                    value,
+                    max_list_items=max_list_items,
+                )
+                continue
+
+            compact[key] = value
+
+        return compact
+
+    if isinstance(item, list):
+        return item[:max_list_items]
+
+    return item
+
+
+def _compact_result_nested_dict(
+    payload: dict[str, Any],
+    *,
+    max_list_items: int,
+) -> dict[str, Any]:
+    compact: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, list):
+            compact[key] = value[:max_list_items]
+            compact[f"{key}_truncated_count"] = max(
+                len(value) - len(compact[key]),
+                0,
+            )
+            continue
+
+        if isinstance(value, dict):
+            compact[key] = list(value.keys())[:max_list_items]
+            compact[f"{key}_key_count"] = len(value)
+            continue
+
+        compact[key] = value
+
+    return compact
