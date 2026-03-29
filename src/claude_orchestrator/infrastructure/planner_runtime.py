@@ -1,4 +1,4 @@
-# src\claude_orchestrator\infrastructure\planner_runtime.py
+# src/claude_orchestrator/infrastructure/planner_runtime.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -8,6 +8,12 @@ import json
 from claude_orchestrator.infrastructure.project_paths import ProjectPaths
 from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 from claude_orchestrator.infrastructure.task_index import TaskIndex
+from claude_orchestrator.services.context_compactor import (
+    build_director_context_for_next_role,
+    build_implementer_context_for_reviewer,
+    build_reviewer_context_for_director,
+)
+from claude_orchestrator.services.docs_context_compactor import compact_core_doc_text
 
 
 class PlannerRuntime:
@@ -143,10 +149,26 @@ class PlannerRuntime:
                 "Required source reports not found: " + ", ".join(missing_paths)
             )
 
+        implementer_json = self._load_json(implementer_path)
+        reviewer_json = self._load_json(reviewer_path)
+        director_json = self._load_json(director_path)
+
         return {
-            "implementer_report_json": implementer_path.read_text(encoding="utf-8"),
-            "reviewer_report_json": reviewer_path.read_text(encoding="utf-8"),
-            "director_report_json": director_path.read_text(encoding="utf-8"),
+            "implementer_report_json": json.dumps(
+                build_implementer_context_for_reviewer(implementer_json),
+                indent=2,
+                ensure_ascii=False,
+            ),
+            "reviewer_report_json": json.dumps(
+                build_reviewer_context_for_director(reviewer_json),
+                indent=2,
+                ensure_ascii=False,
+            ),
+            "director_report_json": json.dumps(
+                build_director_context_for_next_role(director_json),
+                indent=2,
+                ensure_ascii=False,
+            ),
         }
 
     def build_task_list_summary(self) -> str:
@@ -184,7 +206,15 @@ class PlannerRuntime:
         return json.dumps(docs_payload, indent=2, ensure_ascii=False)
 
     def build_core_docs_text(self, relative_paths: list[str]) -> str:
-        return self.source_runtime.build_core_docs_text(relative_paths)
+        sections: list[str] = []
+
+        for relative_path in relative_paths:
+            normalized = self.source_runtime._normalize_doc_display_path(relative_path)
+            content = self.source_runtime.read_doc_text(relative_path)
+            compact_content = compact_core_doc_text(relative_path, content)
+            sections.append(f"## doc: {normalized}\n{compact_content}")
+
+        return "\n\n".join(sections)
 
     def write_proposal_files(
         self,
@@ -286,3 +316,8 @@ class PlannerRuntime:
     def _get_report_filename(cls, planner_role: str) -> str:
         normalized = cls.validate_planner_role(planner_role)
         return cls._ROLE_TO_REPORT_FILENAME[normalized]
+
+    @staticmethod
+    def _load_json(path: Path) -> dict:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
