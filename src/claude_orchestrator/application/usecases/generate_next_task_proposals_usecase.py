@@ -8,6 +8,11 @@ from claude_orchestrator.core.prompt_renderer import render_prompt
 from claude_orchestrator.gui.claude_runner import run_claude_print_mode
 from claude_orchestrator.infrastructure.planner_runtime import PlannerRuntime
 from claude_orchestrator.infrastructure.schema_validator import SchemaValidator
+from claude_orchestrator.services.planning_context_compactor import (
+    compact_project_config_for_planning,
+    compact_state_json_for_planning,
+    compact_task_json_for_planning,
+)
 
 
 class GenerateNextTaskProposalsUseCase:
@@ -154,9 +159,21 @@ class GenerateNextTaskProposalsUseCase:
         output_schema: str,
         output_json_path: Path,
     ) -> str:
-        task_json_text = json.dumps(task_json, indent=2, ensure_ascii=False)
-        state_json_text = json.dumps(state_json, indent=2, ensure_ascii=False)
-        project_config_json_text = json.dumps(project_config, indent=2, ensure_ascii=False)
+        task_json_text = json.dumps(
+            compact_task_json_for_planning(task_json),
+            indent=2,
+            ensure_ascii=False,
+        )
+        state_json_text = json.dumps(
+            compact_state_json_for_planning(state_json),
+            indent=2,
+            ensure_ascii=False,
+        )
+        project_config_json_text = json.dumps(
+            compact_project_config_for_planning(project_config),
+            indent=2,
+            ensure_ascii=False,
+        )
 
         return render_prompt(
             template,
