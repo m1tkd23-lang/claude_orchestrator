@@ -9,6 +9,7 @@ from claude_orchestrator.gui.tabs.detail_tab import build_detail_tab
 from claude_orchestrator.gui.tabs.execution_tab import build_execution_tab
 from claude_orchestrator.gui.tabs.pipeline_tab import build_pipeline_tab
 from claude_orchestrator.gui.tabs.remote_tab import build_remote_tab
+from claude_orchestrator.gui.tabs.requirements_tab import build_requirements_tab
 
 
 def build_main_window_ui(window: Any) -> None:
@@ -24,6 +25,7 @@ def build_main_window_ui(window: Any) -> None:
 
     window.main_tabs.addTab(build_execution_tab(window), "実行")
     window.main_tabs.addTab(build_pipeline_tab(window), "pipeline")
+    window.main_tabs.addTab(build_requirements_tab(window), "requirements")
     window.main_tabs.addTab(build_remote_tab(window), "Remote Claude")
     window.main_tabs.addTab(build_detail_tab(window), "詳細")
 
@@ -54,6 +56,21 @@ def connect_main_window_signals(window: Any) -> None:
     window.btn_advance.clicked.connect(window.on_advance_task)
     window.btn_reload_selected.clicked.connect(window.on_reload_selected_task)
 
+    window.btn_load_requirements.clicked.connect(window.on_load_requirements)
+    window.btn_validate_requirements.clicked.connect(window.on_validate_requirements)
+    window.btn_save_requirements.clicked.connect(window.on_save_requirements)
+    window.btn_generate_requirements_docs.clicked.connect(
+        window.on_generate_requirements_docs
+    )
+    window.btn_requirements_claude_suggest.clicked.connect(
+        window.on_requirements_claude_suggest
+    )
+    window.btn_requirements_apply_claude_json.clicked.connect(
+        window.on_apply_requirements_claude_json
+    )
+
+
+
     window.planner_role_combo.currentIndexChanged.connect(
         window.on_planner_role_changed
     )
@@ -72,6 +89,14 @@ def connect_main_window_signals(window: Any) -> None:
         window.on_approve_next_task_from_plan_director
     )
     window.btn_skip_next_task.clicked.connect(window.on_skip_next_task_from_plan_director)
+
+    window.btn_run_requirements_refinement_loop.clicked.connect(
+        window.on_run_requirements_refinement_loop
+    )
+    window.btn_create_task_from_requirements.clicked.connect(
+        window.on_create_task_from_requirements
+    )
+
 
     window.pipeline_manual_approval_radio.toggled.connect(
         window.on_pipeline_approval_mode_changed

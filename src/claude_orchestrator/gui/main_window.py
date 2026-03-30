@@ -8,6 +8,9 @@ from claude_orchestrator.gui.main_window_actions import MainWindowActionsMixin
 from claude_orchestrator.gui.main_window_auto_run import MainWindowAutoRunMixin
 from claude_orchestrator.gui.main_window_planner import MainWindowPlannerMixin
 from claude_orchestrator.gui.main_window_remote import MainWindowRemoteMixin
+from claude_orchestrator.gui.main_window_requirements import (
+    MainWindowRequirementsMixin,
+)
 from claude_orchestrator.gui.main_window_view_state import MainWindowViewStateMixin
 from claude_orchestrator.gui.state_helpers import apply_initial_state
 from claude_orchestrator.gui.ui_sections import (
@@ -21,6 +24,7 @@ class MainWindow(
     MainWindowAutoRunMixin,
     MainWindowPlannerMixin,
     MainWindowRemoteMixin,
+    MainWindowRequirementsMixin,
     MainWindowViewStateMixin,
     QMainWindow,
 ):
@@ -62,6 +66,9 @@ class MainWindow(
         self._plan_director_report: dict | None = None
         self._pending_auto_approve_next_task: bool = False
 
+        self._requirements_claude_thread: QThread | None = None
+        self._requirements_claude_worker = None
+
         self._waiting_next_task_approval: bool = False
         self._auto_approve_next_task: bool = False
         self._pipeline_auto_approval_warning_expanded: bool = False
@@ -84,6 +91,7 @@ class MainWindow(
         self._reset_execution_view()
         self._reset_planner_view()
         self._reset_remote_view()
+        self._reset_requirements_view()
         self._clear_pipeline_tab()
         self._refresh_pipeline_controls()
         self._refresh_pipeline_tab()
@@ -95,7 +103,8 @@ class MainWindow(
                 self,
                 "実行中のため終了不可",
                 (
-                    "現在、auto run / planner / plan_director のいずれかが実行中です。\n"
+                    "現在、auto run / planner / plan_director / requirements Claude の"
+                    "いずれかが実行中です。\n"
                     "停止または完了を待ってから閉じてください。"
                 ),
             )
@@ -112,6 +121,7 @@ class MainWindow(
                 self._thread_is_running(self._auto_run_thread),
                 self._thread_is_running(self._planner_thread),
                 self._thread_is_running(self._plan_director_thread),
+                self._thread_is_running(self._requirements_claude_thread),
                 bool(self._auto_run_active),
                 bool(self._planner_active),
                 bool(self._plan_director_active),
@@ -137,3 +147,10 @@ class MainWindow(
         ):
             self._plan_director_thread = None
             self._plan_director_worker = None
+
+        if (
+            self._requirements_claude_thread is not None
+            and not self._requirements_claude_thread.isRunning()
+        ):
+            self._requirements_claude_thread = None
+            self._requirements_claude_worker = None

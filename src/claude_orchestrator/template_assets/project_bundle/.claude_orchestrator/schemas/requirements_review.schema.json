@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/requirements_review.schema.json"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RequirementsReview",
+  "type": "object",
+  "required": [
+    "review_status",
+    "summary",
+    "gate_decision",
+    "issues",
+    "strengths",
+    "consistency_checks",
+    "recommended_actions"
+  ],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        }
+      },
+      "required": ["relative_path"],
+      "additionalProperties": true
+    },
+    "review_status": {
+      "type": "string",
+      "enum": ["ok", "needs_fix"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "gate_decision": {
+      "type": "string",
+      "enum": ["approve", "revise"]
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "issue_id",
+          "type",
+          "severity",
+          "title",
+          "description"
+        ],
+        "properties": {
+          "issue_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "inconsistency",
+              "over_scope",
+              "unclear",
+              "constraint_violation",
+              "task_split_risk"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "location": {
+            "type": ["string", "null"]
+          },
+          "suggestion": {
+            "type": ["string", "null"]
+          },
+          "blocks_factory_flow": {
+            "type": ["boolean", "null"]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "consistency_checks": {
+      "type": "object",
+      "required": [
+        "flow_to_features",
+        "features_to_completion",
+        "scope_alignment"
+      ],
+      "properties": {
+        "flow_to_features": {
+          "type": "string"
+        },
+        "features_to_completion": {
+          "type": "string"
+        },
+        "scope_alignment": {
+          "type": "string"
+        }
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

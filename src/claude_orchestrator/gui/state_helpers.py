@@ -27,6 +27,17 @@ def require_repo_path(window) -> str:
     return repo_path
 
 
+def is_initialized_repo(repo_path: str) -> bool:
+    normalized = normalize_repo_path(repo_path)
+    if not normalized:
+        return False
+
+    repo_root = Path(normalized)
+    orchestrator_root = repo_root / ".claude_orchestrator"
+    project_config_path = orchestrator_root / "config" / "project_config.json"
+    return orchestrator_root.exists() and project_config_path.exists()
+
+
 def handle_repo_changed(window, repo_path: str) -> None:
     normalized = normalize_repo_path(repo_path)
     previous = str(getattr(window, "_last_repo_path", "")).strip()
@@ -37,7 +48,13 @@ def handle_repo_changed(window, repo_path: str) -> None:
     window._current_task_id = ""
     window._selected_task_id = ""
     window._active_pipeline_task_id = ""
-    refresh_task_list(window)
+
+    if hasattr(window, "task_list_widget"):
+        window.task_list_widget.clear()
+
+    if is_initialized_repo(normalized):
+        refresh_task_list(window)
+
     if hasattr(window, "_on_repo_context_changed"):
         window._on_repo_context_changed(normalized)
 
@@ -99,6 +116,9 @@ def refresh_task_list(window) -> None:
     window.task_list_widget.clear()
 
     if not repo_path or not Path(repo_path).exists():
+        return
+
+    if not is_initialized_repo(repo_path):
         return
 
     tasks = StatusUseCase().list_tasks(repo_path=repo_path)
@@ -176,6 +196,9 @@ def find_oldest_incomplete_task_id(window) -> str:
     if not repo_path or not Path(repo_path).exists():
         return ""
 
+    if not is_initialized_repo(repo_path):
+        return ""
+
     tasks = StatusUseCase().list_tasks(repo_path=repo_path)
     incomplete_task_ids = [
         str(task.get("task_id", "")).strip()
@@ -227,6 +250,12 @@ def require_selected_task_id(window) -> str:
 
 def load_selected_task_detail(window, task_id: str) -> None:
     repo_path = require_repo_path(window)
+    if not is_initialized_repo(repo_path):
+        raise FileNotFoundError(
+            f".claude_orchestrator not found. Run init-project first: "
+            f"{Path(repo_path) / '.claude_orchestrator'}"
+        )
+
     normalized_task_id = str(task_id).strip()
     if not normalized_task_id:
         raise ValueError("task_id is empty.")
