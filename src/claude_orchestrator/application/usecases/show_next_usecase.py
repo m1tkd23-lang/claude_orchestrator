@@ -1,12 +1,18 @@
-# src/claude_orchestrator/application/usecases/show_next_usecase.py
+# src\claude_orchestrator\application\usecases\show_next_usecase.py
 from __future__ import annotations
 
 from pathlib import Path
 import json
 
+from claude_orchestrator.application.usecases.retrieve_memory_for_prompt_usecase import (
+    RetrieveMemoryForPromptUseCase,
+)
 from claude_orchestrator.core.prompt_renderer import render_prompt
 from claude_orchestrator.infrastructure.project_paths import ProjectPaths
 from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
+from claude_orchestrator.services.context_compactor import (
+    compact_task_json_for_execution_role,
+)
 
 
 class ShowNextUseCase:
@@ -85,7 +91,12 @@ class ShowNextUseCase:
         output_schema: str,
         output_json_path: Path,
     ) -> str:
-        task_json_text = json.dumps(task_json, indent=2, ensure_ascii=False)
+        prompt_task_json = (
+            compact_task_json_for_execution_role(role, task_json)
+            if role in {"implementer", "reviewer", "director"}
+            else task_json
+        )
+        task_json_text = json.dumps(prompt_task_json, indent=2, ensure_ascii=False)
         state_json_text = json.dumps(state_json, indent=2, ensure_ascii=False)
 
         common_kwargs = {
@@ -100,6 +111,15 @@ class ShowNextUseCase:
         }
 
         if role == "task_router":
+            recalled_notes = RetrieveMemoryForPromptUseCase().execute(
+                repo_path=repo_path,
+                role=role,
+                task_json=task_json,
+                state_json=state_json,
+                development_mode=self._load_development_mode(
+                    target_repo=Path(repo_path).resolve()
+                ),
+            )
             task_router_skill = runtime.read_skill_text("task_router", "route-task")
             core_docs_text = runtime.build_core_docs_text(
                 self.CORE_DOC_PATHS_FOR_TASK_ROUTER
@@ -108,10 +128,20 @@ class ShowNextUseCase:
                 template,
                 task_router_skill=task_router_skill,
                 core_docs_text=core_docs_text,
+                recalled_notes_text=recalled_notes["recalled_notes_text"],
                 **common_kwargs,
             )
 
         if role == "implementer":
+            recalled_notes = RetrieveMemoryForPromptUseCase().execute(
+                repo_path=repo_path,
+                role=role,
+                task_json=task_json,
+                state_json=state_json,
+                development_mode=self._load_development_mode(
+                    target_repo=Path(repo_path).resolve()
+                ),
+            )
             previous_director_report_json = runtime.load_previous_director_context_text(
                 cycle
             )
@@ -120,6 +150,7 @@ class ShowNextUseCase:
                 template,
                 previous_director_report_json=previous_director_report_json,
                 assigned_skills_text=assigned_skills_text,
+                recalled_notes_text=recalled_notes["recalled_notes_text"],
                 **common_kwargs,
             )
 
@@ -150,3 +181,10 @@ class ShowNextUseCase:
             )
 
         raise ValueError(f"Unsupported role: {role}")
+
+    @staticmethod
+    def _load_development_mode(*, target_repo: Path) -> str:
+        project_paths = ProjectPaths(target_repo=target_repo)
+        project_config = project_paths.load_project_config()
+        value = str(project_config.get("development_mode", "")).strip()
+        return value or "maintenance"

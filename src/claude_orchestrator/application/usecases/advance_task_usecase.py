@@ -5,6 +5,9 @@ from pathlib import Path
 import json
 from datetime import datetime
 
+from claude_orchestrator.application.usecases.save_memory_from_report_usecase import (
+    SaveMemoryFromReportUseCase,
+)
 from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
 )
@@ -63,6 +66,18 @@ class AdvanceTaskUseCase:
         report_path = runtime.get_output_json_path(current_role, current_cycle)
         with report_path.open("r", encoding="utf-8") as f:
             report = json.load(f)
+
+        SaveMemoryFromReportUseCase().execute(
+            repo_path=str(target_repo),
+            task_id=task_id,
+            role=current_role,
+            cycle=current_cycle,
+            revision=current_revision,
+            task_json=runtime.load_task_json(),
+            state_json=state_json,
+            report_json=report,
+            source_report_path=str(report_path),
+        )
 
         if current_role == "task_router":
             self._apply_task_router_result(runtime=runtime, report=report)

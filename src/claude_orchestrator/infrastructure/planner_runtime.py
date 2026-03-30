@@ -1,4 +1,4 @@
-# src/claude_orchestrator/infrastructure/planner_runtime.py
+# src\claude_orchestrator\infrastructure\planner_runtime.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -14,6 +14,9 @@ from claude_orchestrator.services.context_compactor import (
     build_reviewer_context_for_director,
 )
 from claude_orchestrator.services.docs_context_compactor import compact_core_doc_text
+from claude_orchestrator.services.planning_context_compactor import (
+    compact_reference_doc_for_planner,
+)
 
 
 class PlannerRuntime:
@@ -182,7 +185,7 @@ class PlannerRuntime:
         if not reference_doc_paths:
             return "[]"
 
-        docs_payload: list[dict[str, str]] = []
+        docs_payload: list[dict[str, object]] = []
         for relative_path in reference_doc_paths:
             normalized = str(relative_path).strip()
             if not normalized:
@@ -193,11 +196,10 @@ class PlannerRuntime:
                 continue
 
             docs_payload.append(
-                {
-                    "path": normalized,
-                    "status": "ok",
-                    "content": doc_path.read_text(encoding="utf-8"),
-                }
+                compact_reference_doc_for_planner(
+                    relative_path=normalized,
+                    content=doc_path.read_text(encoding="utf-8"),
+                )
             )
 
         if not docs_payload:

@@ -16,11 +16,17 @@ from claude_orchestrator.application.usecases.create_task_usecase import (
 from claude_orchestrator.application.usecases.generate_next_task_proposals_usecase import (
     GenerateNextTaskProposalsUseCase,
 )
+from claude_orchestrator.application.usecases.generate_requirements_docs_usecase import (
+    GenerateRequirementsDocsUseCase,
+)
 from claude_orchestrator.application.usecases.init_project_usecase import (
     InitProjectUseCase,
 )
 from claude_orchestrator.application.usecases.list_proposals_usecase import (
     ListProposalsUseCase,
+)
+from claude_orchestrator.application.usecases.load_requirements_usecase import (
+    LoadRequirementsUseCase,
 )
 from claude_orchestrator.application.usecases.remote_operator_usecase import (
     RemoteOperatorUseCase,
@@ -36,6 +42,9 @@ from claude_orchestrator.application.usecases.status_usecase import (
 )
 from claude_orchestrator.application.usecases.validate_report_usecase import (
     ValidateReportUseCase,
+)
+from claude_orchestrator.application.usecases.validate_requirements_usecase import (
+    ValidateRequirementsUseCase,
 )
 from claude_orchestrator.infrastructure.task_runtime import TaskRuntime
 
@@ -128,6 +137,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Role name.",
     )
 
+    validate_requirements_parser = subparsers.add_parser(
+        "validate-requirements",
+        help="Validate requirements.json against requirements.schema.json.",
+    )
+    validate_requirements_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+
     advance_parser = subparsers.add_parser(
         "advance",
         help="Advance task state using current next_role report.",
@@ -192,6 +211,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="Reference document path relative to repo. Can be specified multiple times.",
+    )
+
+    generate_requirements_docs_parser = subparsers.add_parser(
+        "generate-requirements-docs",
+        help="Generate requirements-based project docs from requirements.json.",
+    )
+    generate_requirements_docs_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
+    )
+
+    load_requirements_parser = subparsers.add_parser(
+        "load-requirements",
+        help="Load requirements-related files.",
+    )
+    load_requirements_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository path.",
     )
 
     list_proposals_parser = subparsers.add_parser(
@@ -340,6 +379,21 @@ def main() -> None:
         print(f"Report file : {result['report_path']}")
         return
 
+    if args.command == "validate-requirements":
+        usecase = ValidateRequirementsUseCase()
+        result = usecase.execute(repo_path=args.repo)
+
+        print(f"OK          : {result['ok']}")
+        print(f"Valid       : {result['valid']}")
+        print(f"Repo path   : {result['repo_path']}")
+        print(f"Schema path : {result['schema_path']}")
+        print(f"Req path    : {result['requirements_path']}")
+        if result["errors"]:
+            print("Errors      :")
+            for error in result["errors"]:
+                print(f"  - {error}")
+        return
+
     if args.command == "advance":
         state = _load_current_state(
             repo_path=args.repo,
@@ -436,6 +490,45 @@ def main() -> None:
         print(f"Report file : {result['output_json_path']}")
         print(f"Proposal cnt: {len(proposals)}")
         print(f"Summary     : {planner_report.get('summary', '')}")
+        return
+
+    if args.command == "generate-requirements-docs":
+        usecase = GenerateRequirementsDocsUseCase()
+        result = usecase.execute(repo_path=args.repo)
+
+        print(f"OK          : {result['ok']}")
+        print(f"Repo path   : {result['repo_path']}")
+        print(f"Schema path : {result['schema_path']}")
+
+        if result["errors"]:
+            print("Errors      :")
+            for error in result["errors"]:
+                print(f"  - {error}")
+            return
+
+        print("Written files:")
+        for item in result["written_files"]:
+            print(f"  - {item['path']} | updated_at={item['updated_at']}")
+        return
+
+    if args.command == "load-requirements":
+        usecase = LoadRequirementsUseCase()
+        result = usecase.execute(repo_path=args.repo)
+
+        print(f"OK          : {result['ok']}")
+        print(f"Repo path   : {result['repo_path']}")
+        print(f"Req path    : {result['requirements_path']}")
+        print(f"OpenQ path  : {result['open_questions_path']}")
+        print(f"Log path    : {result['change_log_path']}")
+        if result["errors"]:
+            print("Errors      :")
+            for error in result["errors"]:
+                print(f"  - {error}")
+            return
+
+        requirements = result["requirements"] or {}
+        print(f"Project     : {requirements.get('project_name', '')}")
+        print(f"Status      : {requirements.get('requirement_status', '')}")
         return
 
     if args.command == "list-proposals":

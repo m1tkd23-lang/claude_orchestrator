@@ -9,9 +9,9 @@ from claude_orchestrator.gui.claude_runner import run_claude_print_mode
 from claude_orchestrator.infrastructure.planner_runtime import PlannerRuntime
 from claude_orchestrator.infrastructure.schema_validator import SchemaValidator
 from claude_orchestrator.services.planning_context_compactor import (
-    compact_project_config_for_planning,
+    compact_project_config_for_planner,
     compact_state_json_for_planning,
-    compact_task_json_for_planning,
+    compact_task_json_for_planner,
 )
 
 
@@ -160,7 +160,7 @@ class GenerateNextTaskProposalsUseCase:
         output_json_path: Path,
     ) -> str:
         task_json_text = json.dumps(
-            compact_task_json_for_planning(task_json),
+            compact_task_json_for_planner(task_json),
             indent=2,
             ensure_ascii=False,
         )
@@ -170,7 +170,7 @@ class GenerateNextTaskProposalsUseCase:
             ensure_ascii=False,
         )
         project_config_json_text = json.dumps(
-            compact_project_config_for_planning(project_config),
+            compact_project_config_for_planner(project_config),
             indent=2,
             ensure_ascii=False,
         )

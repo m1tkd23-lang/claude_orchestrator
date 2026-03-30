@@ -17,6 +17,9 @@
 ## current state json
 {state_json}
 
+## recalled notes
+{recalled_notes_text}
+
 ## 作業対象 repo
 {target_repo}
 

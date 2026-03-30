@@ -1,10 +1,14 @@
-# src/claude_orchestrator/services/planning_context_compactor.py
+# src\claude_orchestrator\services\planning_context_compactor.py
 from __future__ import annotations
 
 from typing import Any
 
 
-def compact_task_json_for_planning(task_json: dict[str, Any]) -> dict[str, Any]:
+_MAX_REFERENCE_DOC_EXCERPT_LINES = 12
+_MAX_REFERENCE_DOC_EXCERPT_CHARS = 1200
+
+
+def compact_task_json_for_planner(task_json: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": task_json.get("task_id", ""),
         "title": task_json.get("title", ""),
@@ -17,7 +21,26 @@ def compact_task_json_for_planning(task_json: dict[str, Any]) -> dict[str, Any]:
         "acceptance_criteria": _as_list(task_json.get("acceptance_criteria")),
         "reference_docs": _as_list(task_json.get("reference_docs")),
         "notes": _as_list(task_json.get("notes")),
+        "docs_update_plan": _as_dict(task_json.get("docs_update_plan")),
     }
+
+
+def compact_task_json_for_plan_director(task_json: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "task_id": task_json.get("task_id", ""),
+        "title": task_json.get("title", ""),
+        "description": task_json.get("description", ""),
+        "task_type": task_json.get("task_type", ""),
+        "risk_level": task_json.get("risk_level", ""),
+        "depends_on": _as_list(task_json.get("depends_on")),
+        "context_files": _as_list(task_json.get("context_files")),
+        "constraints": _as_list(task_json.get("constraints")),
+        "acceptance_criteria": _as_list(task_json.get("acceptance_criteria")),
+    }
+
+
+def compact_task_json_for_planning(task_json: dict[str, Any]) -> dict[str, Any]:
+    return compact_task_json_for_planner(task_json)
 
 
 def compact_state_json_for_planning(state_json: dict[str, Any]) -> dict[str, Any]:
@@ -32,14 +55,29 @@ def compact_state_json_for_planning(state_json: dict[str, Any]) -> dict[str, Any
     }
 
 
-def compact_project_config_for_planning(
+def compact_project_config_for_planner(
     project_config: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "development_mode": project_config.get("development_mode", ""),
-        "orchestrator": _as_dict(project_config.get("orchestrator")),
-        "planner": _as_dict(project_config.get("planner")),
+        "orchestrator": _compact_config_section(project_config.get("orchestrator")),
+        "planner": _compact_config_section(project_config.get("planner")),
     }
+
+
+def compact_project_config_for_plan_director(
+    project_config: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "development_mode": project_config.get("development_mode", ""),
+        "planner": _compact_config_section(project_config.get("planner")),
+    }
+
+
+def compact_project_config_for_planning(
+    project_config: dict[str, Any],
+) -> dict[str, Any]:
+    return compact_project_config_for_planner(project_config)
 
 
 def compact_planner_report_for_plan_director(
@@ -80,6 +118,43 @@ def compact_planner_state_for_plan_director(state_json: dict[str, Any]) -> dict[
     }
 
 
+def compact_reference_doc_for_planner(
+    relative_path: str,
+    content: str,
+) -> dict[str, Any]:
+    excerpt_lines: list[str] = []
+    heading_lines: list[str] = []
+    excerpt_char_count = 0
+
+    for raw_line in content.splitlines():
+        line = raw_line.rstrip()
+        if line.startswith("#") and len(heading_lines) < 6:
+            heading_lines.append(line)
+
+        if not line.strip():
+            continue
+
+        next_count = excerpt_char_count + len(line)
+        if (
+            len(excerpt_lines) >= _MAX_REFERENCE_DOC_EXCERPT_LINES
+            or next_count > _MAX_REFERENCE_DOC_EXCERPT_CHARS
+        ):
+            break
+
+        excerpt_lines.append(line)
+        excerpt_char_count = next_count
+
+    return {
+        "path": relative_path,
+        "status": "ok",
+        "title": heading_lines[0] if heading_lines else "",
+        "headings": heading_lines[:6],
+        "excerpt": "\n".join(excerpt_lines),
+        "line_count": len(content.splitlines()),
+        "truncated": len(content.splitlines()) > len(excerpt_lines),
+    }
+
+
 def _compact_planner_proposal(proposal: Any) -> dict[str, Any]:
     if not isinstance(proposal, dict):
         return {
@@ -111,6 +186,42 @@ def _compact_planner_proposal(proposal: Any) -> dict[str, Any]:
         "depends_on": _as_list(proposal.get("depends_on")),
         "docs_update_plan": _as_dict(proposal.get("docs_update_plan")),
     }
+
+
+def _compact_config_section(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+
+    compact: dict[str, Any] = {}
+    for key, raw in value.items():
+        if _is_simple_value(raw):
+            compact[key] = raw
+            continue
+
+        if isinstance(raw, list) and _is_simple_list(raw):
+            compact[key] = raw[:8]
+            if len(raw) > len(compact[key]):
+                compact[f"{key}_truncated_count"] = len(raw) - len(compact[key])
+            continue
+
+        if isinstance(raw, dict):
+            nested = {
+                nested_key: nested_value
+                for nested_key, nested_value in raw.items()
+                if _is_simple_value(nested_value)
+            }
+            if nested:
+                compact[key] = nested
+
+    return compact
+
+
+def _is_simple_value(value: Any) -> bool:
+    return isinstance(value, (str, int, float, bool)) or value is None
+
+
+def _is_simple_list(value: list[Any]) -> bool:
+    return all(_is_simple_value(item) for item in value)
 
 
 def _as_list(value: Any) -> list[Any]:

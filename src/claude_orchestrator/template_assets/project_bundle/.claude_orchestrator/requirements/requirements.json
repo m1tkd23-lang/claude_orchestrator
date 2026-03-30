@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/requirements/requirements.json"
+  },
+  "project_name": "新規プロジェクト",
+  "requirement_status": "draft",
+  "product_summary": "ここにプロダクト概要を記載する",
+  "core_purpose": "この開発で実現したい価値を記載する",
+  "target_users": [
+    "想定利用者を記載する"
+  ],
+  "main_roles": [],
+  "usage_modes": [
+    "利用形態を記載する"
+  ],
+  "value_points": [],
+  "mvp_feature_groups": [
+    {
+      "name": "主要機能",
+      "summary": "この機能領域の説明",
+      "requirements": [
+        "最低限の成立条件を記載する"
+      ],
+      "priority": "high",
+      "completion_section_refs": [
+        "対応セクション名"
+      ]
+    }
+  ],
+  "main_flow": [
+    "主線フローを記載する"
+  ],
+  "technical_policy": [
+    "技術方針を記載する"
+  ],
+  "design_principles": [],
+  "constraints": [
+    "制約条件を記載する"
+  ],
+  "out_of_scope": [
+    "対象外を記載する"
+  ],
+  "open_questions": [],
+  "mvp_completion_sections": [
+    {
+      "section_name": "主要セクション",
+      "goal": "目的を記載する",
+      "completion_items": [
+        "完成条件を記載する"
+      ],
+      "priority": 1,
+      "judgement": "未判定",
+      "notes": []
+    }
+  ],
+  "operability_requirements": [],
+  "quality_requirements": [],
+  "error_handling_requirements": [],
+  "data_integrity_requirements": [],
+  "future_extensions": [],
+  "priority_order": [
+    "優先順位を記載する"
+  ],
+  "feature_inventory": [
+    {
+      "feature_name": "主要機能",
+      "layers": ["usecase"],
+      "status": "not_implemented",
+      "summary": "機能の説明",
+      "completion_links": [
+        "対応セクション名"
+      ],
+      "task_split_notes": [],
+      "related_files": [],
+      "notes": []
+    }
+  ]
+}

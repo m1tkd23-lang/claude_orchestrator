@@ -1,0 +1,310 @@
+{
+  "_meta": {
+    "relative_path": "src/claude_orchestrator/template_assets/project_bundle/.claude_orchestrator/schemas/requirements.schema.json"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Requirements",
+  "type": "object",
+  "required": [
+    "project_name",
+    "requirement_status",
+    "product_summary",
+    "core_purpose",
+    "target_users",
+    "usage_modes",
+    "mvp_feature_groups",
+    "main_flow",
+    "technical_policy",
+    "constraints",
+    "out_of_scope",
+    "mvp_completion_sections",
+    "priority_order",
+    "feature_inventory"
+  ],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "properties": {
+        "relative_path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path"
+      ],
+      "additionalProperties": true
+    },
+    "project_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requirement_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "in_review",
+        "confirmed",
+        "needs_update"
+      ]
+    },
+    "product_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "core_purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_users": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "main_roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "usage_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "value_points": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "mvp_feature_groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mvpFeatureGroup"
+      },
+      "minItems": 1
+    },
+    "main_flow": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "technical_policy": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "design_principles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "out_of_scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "mvp_completion_sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mvpCompletionSection"
+      },
+      "minItems": 1
+    },
+    "operability_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "quality_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "error_handling_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "data_integrity_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "future_extensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/futureExtension"
+      },
+      "default": []
+    },
+    "priority_order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "feature_inventory": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/featureInventoryItem"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "mvpFeatureGroup": {
+      "type": "object",
+      "required": [
+        "name",
+        "summary",
+        "requirements",
+        "priority"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "summary": { "type": "string" },
+        "requirements": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "completion_section_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "mvpCompletionSection": {
+      "type": "object",
+      "required": [
+        "section_name",
+        "goal",
+        "completion_items",
+        "priority",
+        "judgement"
+      ],
+      "properties": {
+        "section_name": { "type": "string" },
+        "goal": { "type": "string" },
+        "completion_items": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "priority": { "type": "integer" },
+        "judgement": { "type": "string" },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "futureExtension": {
+      "type": "object",
+      "required": ["category", "items"],
+      "properties": {
+        "category": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "featureInventoryItem": {
+      "type": "object",
+      "required": [
+        "feature_name",
+        "layers",
+        "status",
+        "summary",
+        "completion_links"
+      ],
+      "properties": {
+        "feature_name": { "type": "string" },
+        "layers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "type": "string" },
+        "summary": { "type": "string" },
+        "completion_links": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "task_split_notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "related_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
